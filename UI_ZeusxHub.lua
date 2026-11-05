@@ -6,8 +6,7 @@ local runService = game:GetService("RunService")
 local httpService = game:GetService("HttpService")
 
 -- Constants.
-local HUB_NAME = "Zeusx Hub"
-local LOGO_ASSET = "rbxassetid://111329772867650"
+local LOGO_ASSET = "rbxassetid://128679519864751"
 local ACCENT_COLOR = Color3.fromRGB(255, 200, 40)
 local BELI_COLOR = Color3.fromRGB(80, 255, 120)
 local FRAGMENT_COLOR = Color3.fromRGB(180, 100, 255)
@@ -184,7 +183,7 @@ layout.Parent = container
 
 local logoHolder = Instance.new("Frame")
 logoHolder.LayoutOrder = 1
-logoHolder.Size = UDim2.fromOffset(160, 160)
+logoHolder.Size = UDim2.fromOffset(180, 180)
 logoHolder.BackgroundTransparency = 1
 logoHolder.Parent = container
 
@@ -193,9 +192,6 @@ logo.Size = UDim2.fromScale(1, 1)
 logo.BackgroundTransparency = 1
 logo.Image = LOGO_ASSET
 logo.Parent = logoHolder
-
-local nameLabel = createLabel(container, 2, 30, ACCENT_COLOR)
-nameLabel.Text = HUB_NAME
 
 local statsLabel = createLabel(container, 3, 18, Color3.fromRGB(255, 255, 255))
 local taskLabel = createLabel(container, 4, 16, Color3.fromRGB(180, 180, 190))
