@@ -174,20 +174,16 @@ local function optimizeGlobals()
 	local terrain = workspaceService:FindFirstChildOfClass("Terrain")
 	if terrain and TERRAIN_WATER_CLEAR then
 		SuperpowerPerformance.cache[terrain] = {
-			WaterWaveSize = terrain.WaterWaveSize,
-			WaterWaveSpeed = terrain.WaterWaveSpeed,
-			WaterReflectance = terrain.WaterReflectance,
-			WaterTransparency = terrain.WaterTransparency,
-			Decoration = terrain.Decoration,
+		    WaterWaveSize = terrain.WaterWaveSize,
+		    WaterWaveSpeed = terrain.WaterWaveSpeed,
+		    WaterReflectance = terrain.WaterReflectance,
+		    WaterTransparency = terrain.WaterTransparency,
 		}
 
 		terrain.WaterWaveSize = 0
 		terrain.WaterWaveSpeed = 0
 		terrain.WaterReflectance = 0
 		terrain.WaterTransparency = 1
-		pcall(function()
-			terrain.Decoration = false
-		end)
 	end
 
 	-- Lower render quality and uncap the framerate.
