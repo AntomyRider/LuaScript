@@ -11,6 +11,9 @@ local LOGO_ASSET = "rbxassetid://128679519864751"
 local ACCENT_COLOR = Color3.fromRGB(255, 200, 40)
 local BELI_COLOR = Color3.fromRGB(80, 255, 120)
 local FRAGMENT_COLOR = Color3.fromRGB(180, 100, 255)
+local ITEM_SIZE = 56
+local OWNED_COLOR = Color3.fromRGB(80, 255, 120)
+local MISSING_COLOR = Color3.fromRGB(120, 120, 130)
 local FONT_ROOT = "ZeusxHub"
 local FONT_FOLDER = "ZeusxHub/Fonts"
 local FONT_NAME = "Coiny"
@@ -170,7 +173,7 @@ background.Parent = screenGui
 local container = Instance.new("Frame")
 container.AnchorPoint = Vector2.new(0.5, 0.5)
 container.Position = UDim2.fromScale(0.5, 0.5)
-container.Size = UDim2.fromOffset(420, 440)
+container.Size = UDim2.fromOffset(520, 430)
 container.BackgroundTransparency = 1
 container.Parent = background
 
@@ -196,66 +199,102 @@ logo.Image = LOGO_ASSET
 logo.AutoButtonColor = false
 logo.Parent = logoHolder
 
-local statsLabel = createLabel(container, 3, 18, Color3.fromRGB(255, 255, 255))
-local taskLabel = createLabel(container, 4, 16, Color3.fromRGB(180, 180, 190))
-local timeLabel = createLabel(container, 5, 16, Color3.fromRGB(180, 180, 190))
+-- Row that holds the item cards sent from the main script.
+local itemsHolder = Instance.new("Frame")
+itemsHolder.LayoutOrder = 2
+itemsHolder.Size = UDim2.new(1, 0, 0, ITEM_SIZE + 26)
+itemsHolder.BackgroundTransparency = 1
+itemsHolder.Parent = container
 
--- Item images synced from the main script.
-local itemHolder = Instance.new("Frame")
-itemHolder.Name = "ItemHolder"
-itemHolder.LayoutOrder = 6
-itemHolder.Size = UDim2.new(1, 0, 0, 76)
-itemHolder.BackgroundTransparency = 1
-itemHolder.Parent = container
+local itemsLayout = Instance.new("UIListLayout")
+itemsLayout.FillDirection = Enum.FillDirection.Horizontal
+itemsLayout.HorizontalAlignment = Enum.HorizontalAlignment.Center
+itemsLayout.VerticalAlignment = Enum.VerticalAlignment.Center
+itemsLayout.SortOrder = Enum.SortOrder.LayoutOrder
+itemsLayout.Padding = UDim.new(0, 10)
+itemsLayout.Parent = itemsHolder
 
-local itemList = Instance.new("ScrollingFrame")
-itemList.Name = "ItemList"
-itemList.Size = UDim2.fromScale(1, 1)
-itemList.BackgroundTransparency = 1
-itemList.BorderSizePixel = 0
-itemList.ScrollBarThickness = 2
-itemList.ScrollingDirection = Enum.ScrollingDirection.X
-itemList.CanvasSize = UDim2.fromOffset(0, 0)
-itemList.AutomaticCanvasSize = Enum.AutomaticSize.X
-itemList.Parent = itemHolder
+local itemCards = {}
 
-local itemLayout = Instance.new("UIListLayout")
-itemLayout.FillDirection = Enum.FillDirection.Horizontal
-itemLayout.HorizontalAlignment = Enum.HorizontalAlignment.Center
-itemLayout.VerticalAlignment = Enum.VerticalAlignment.Center
-itemLayout.SortOrder = Enum.SortOrder.LayoutOrder
-itemLayout.Padding = UDim.new(0, 8)
-itemLayout.Parent = itemList
+-- Create one item card (icon + name).
+local function createItemCard(name, order)
+    local card = Instance.new("Frame")
+    card.LayoutOrder = order
+    card.Size = UDim2.fromOffset(ITEM_SIZE + 16, ITEM_SIZE + 26)
+    card.BackgroundTransparency = 1
+    card.Parent = itemsHolder
 
--- Update only the item images. No names, quantities, or status text.
+    local icon = Instance.new("ImageLabel")
+    icon.Name = "Icon"
+    icon.AnchorPoint = Vector2.new(0.5, 0)
+    icon.Position = UDim2.new(0.5, 0, 0, 0)
+    icon.Size = UDim2.fromOffset(ITEM_SIZE, ITEM_SIZE)
+    icon.BackgroundColor3 = Color3.fromRGB(25, 25, 32)
+    icon.ScaleType = Enum.ScaleType.Fit
+    icon.Parent = card
+
+    local corner = Instance.new("UICorner")
+    corner.CornerRadius = UDim.new(0, 10)
+    corner.Parent = icon
+
+    local stroke = Instance.new("UIStroke")
+    stroke.Name = "Stroke"
+    stroke.Thickness = 2
+    stroke.Parent = icon
+
+    local text = Instance.new("TextLabel")
+    text.Name = "Text"
+    text.AnchorPoint = Vector2.new(0.5, 1)
+    text.Position = UDim2.new(0.5, 0, 1, 0)
+    text.Size = UDim2.new(1, 0, 0, 20)
+    text.BackgroundTransparency = 1
+    text.FontFace = coinyFont
+    text.TextSize = 14
+    text.RichText = true
+    text.Text = name
+    text.Parent = card
+
+    return card
+end
+
+-- Receive items from the main script and render them.
+-- items = { { name = string, asset = string, owned = boolean, count = number } }
 function ZeusxHub.setItems(items)
-    for _, child in ipairs(itemList:GetChildren()) do
-        if child:IsA("ImageLabel") then
-            child:Destroy()
+    local seen = {}
+
+    for order, item in ipairs(items or {}) do
+        local card = itemCards[item.name]
+
+        if not card then
+            card = createItemCard(item.name, order)
+            itemCards[item.name] = card
         end
+
+        seen[item.name] = true
+        card.LayoutOrder = order
+
+        local icon = card.Icon
+        local color = item.owned and OWNED_COLOR or MISSING_COLOR
+
+        icon.Image = item.asset or ""
+        icon.ImageTransparency = item.owned and 0 or 0.65
+        icon.Stroke.Color = color
+        card.Text.TextColor3 = color
+        card.Text.Text = (item.count and item.count > 1) and string.format("%s x%d", item.name, item.count) or item.name
     end
 
-    for index, item in ipairs(items or {}) do
-        if item.asset and item.asset ~= "" then
-            local image = Instance.new("ImageLabel")
-            image.Name = "ItemImage"
-            image.Size = UDim2.fromOffset(58, 58)
-            image.BackgroundColor3 = Color3.fromRGB(25, 25, 32)
-            image.BackgroundTransparency = 0.15
-            image.BorderSizePixel = 0
-            image.Image = item.asset
-            image.ImageTransparency = item.owned and 0 or 0.5
-            image.ScaleType = Enum.ScaleType.Fit
-            image.LayoutOrder = index
-            image.Parent = itemList
-
-            local corner = Instance.new("UICorner")
-            corner.CornerRadius = UDim.new(0, 10)
-            corner.Parent = image
-
+    -- Remove cards that are no longer requested.
+    for name, card in pairs(itemCards) do
+        if not seen[name] then
+            card:Destroy()
+            itemCards[name] = nil
         end
     end
 end
+
+local statsLabel = createLabel(container, 3, 18, Color3.fromRGB(255, 255, 255))
+local taskLabel = createLabel(container, 4, 16, Color3.fromRGB(180, 180, 190))
+local timeLabel = createLabel(container, 5, 16, Color3.fromRGB(180, 180, 190))
 
 -- Toggle UI visibility.
 local uiVisible = true
@@ -263,10 +302,10 @@ local uiVisible = true
 local function toggleUI()
     uiVisible = not uiVisible
 
+    itemsHolder.Visible = uiVisible
     statsLabel.Visible = uiVisible
     taskLabel.Visible = uiVisible
     timeLabel.Visible = uiVisible
-    itemHolder.Visible = uiVisible
 
     background.BackgroundTransparency = uiVisible and 0.15 or 1
 end
