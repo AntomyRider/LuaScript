@@ -14,8 +14,14 @@ local BELI_COLOR = Color3.fromRGB(80, 255, 120)
 local FRAGMENT_COLOR = Color3.fromRGB(180, 100, 255)
 -- Item name (same as inventory name) -> image asset.
 local ITEM_ASSETS = {
-    ["Saber"] = "rbxassetid://135665944389990",
+    ["Godhuman"] = "rbxassetid://75176997304682",
+	["Saber"] = "rbxassetid://135665944389990",
+    ["Yama"] = "rbxassetid://138342732332076",
+    ["Tushita"] = "rbxassetid://127659543896119",
+    ["Cursed Dual Katana"] = "rbxassetid://139876489530430",
+    ["Hallow Scythe"] = "rbxassetid://108136486901075",
 }
+
 local INVENTORY_INTERVAL = 2
 local ITEM_SIZE = 56
 local OWNED_COLOR = Color3.fromRGB(80, 255, 120)
