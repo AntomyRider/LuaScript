@@ -217,7 +217,7 @@ logo.Parent = logoHolder
 
 -- Row that holds the item cards sent from the main script.
 local itemsHolder = Instance.new("Frame")
-itemsHolder.LayoutOrder = 2
+itemsHolder.LayoutOrder = 5
 itemsHolder.Size = UDim2.new(1, 0, 0, ITEM_SIZE + 26)
 itemsHolder.BackgroundTransparency = 1
 itemsHolder.Parent = container
@@ -233,11 +233,13 @@ itemsLayout.Parent = itemsHolder
 local itemCards = {}
 
 -- Create one item card (icon + name).
+-- Create one item card (icon + name).
 local function createItemCard(name, order)
     local card = Instance.new("Frame")
     card.LayoutOrder = order
     card.Size = UDim2.fromOffset(ITEM_SIZE + 16, ITEM_SIZE + 26)
     card.BackgroundTransparency = 1
+    card.BorderSizePixel = 0
     card.Parent = itemsHolder
 
     local icon = Instance.new("ImageLabel")
@@ -245,18 +247,10 @@ local function createItemCard(name, order)
     icon.AnchorPoint = Vector2.new(0.5, 0)
     icon.Position = UDim2.new(0.5, 0, 0, 0)
     icon.Size = UDim2.fromOffset(ITEM_SIZE, ITEM_SIZE)
-    icon.BackgroundColor3 = Color3.fromRGB(25, 25, 32)
+    icon.BackgroundTransparency = 1
+    icon.BorderSizePixel = 0
     icon.ScaleType = Enum.ScaleType.Fit
     icon.Parent = card
-
-    local corner = Instance.new("UICorner")
-    corner.CornerRadius = UDim.new(0, 10)
-    corner.Parent = icon
-
-    local stroke = Instance.new("UIStroke")
-    stroke.Name = "Stroke"
-    stroke.Thickness = 2
-    stroke.Parent = icon
 
     local text = Instance.new("TextLabel")
     text.Name = "Text"
@@ -266,6 +260,7 @@ local function createItemCard(name, order)
     text.BackgroundTransparency = 1
     text.FontFace = coinyFont
     text.TextSize = 14
+    text.TextColor3 = Color3.fromRGB(255, 255, 255)
     text.RichText = true
     text.Text = name
     text.Parent = card
@@ -386,9 +381,9 @@ ZeusxHub.itemsThread = task.spawn(function()
     end
 end)
 
-local statsLabel = createLabel(container, 3, 18, Color3.fromRGB(255, 255, 255))
-local taskLabel = createLabel(container, 4, 16, Color3.fromRGB(180, 180, 190))
-local timeLabel = createLabel(container, 5, 16, Color3.fromRGB(180, 180, 190))
+local statsLabel = createLabel(container, 2, 18, Color3.fromRGB(255, 255, 255))
+local taskLabel = createLabel(container, 3, 16, Color3.fromRGB(180, 180, 190))
+local timeLabel = createLabel(container, 4, 16, Color3.fromRGB(180, 180, 190))
 
 -- Toggle UI visibility.
 local uiVisible = true
