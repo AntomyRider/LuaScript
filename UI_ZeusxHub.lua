@@ -242,32 +242,54 @@ local itemCards = {}
 -- Create one item card (icon + name).
 local function createItemCard(name, order)
     local card = Instance.new("Frame")
+    card.Name = "ItemCard"
     card.LayoutOrder = order
-    card.Size = UDim2.fromOffset(ITEM_SIZE + 16, ITEM_SIZE + 26)
-    card.BackgroundTransparency = 1
+    card.Size = UDim2.fromOffset(ITEM_SIZE + 16, ITEM_SIZE + 30)
+    card.BackgroundColor3 = Color3.fromRGB(28, 23, 14)
+    card.BackgroundTransparency = 0.1
     card.BorderSizePixel = 0
     card.Parent = itemsHolder
 
+    -- Outer border.
+    local outerStroke = Instance.new("UIStroke")
+    outerStroke.Color = Color3.fromRGB(184, 134, 45)
+    outerStroke.Thickness = 1.5
+    outerStroke.Transparency = 0
+    outerStroke.Parent = card
+
+    -- Item icon.
     local icon = Instance.new("ImageLabel")
     icon.Name = "Icon"
     icon.AnchorPoint = Vector2.new(0.5, 0)
-    icon.Position = UDim2.new(0.5, 0, 0, 0)
+    icon.Position = UDim2.new(0.5, 0, 0, 2)
     icon.Size = UDim2.fromOffset(ITEM_SIZE, ITEM_SIZE)
     icon.BackgroundTransparency = 1
     icon.BorderSizePixel = 0
     icon.ScaleType = Enum.ScaleType.Fit
     icon.Parent = card
 
+    -- Separator border.
+    local separator = Instance.new("Frame")
+    separator.Name = "Separator"
+    separator.AnchorPoint = Vector2.new(0.5, 0)
+    separator.Position = UDim2.new(0.5, 0, 0, ITEM_SIZE + 3)
+    separator.Size = UDim2.new(1, -2, 0, 1)
+    separator.BackgroundColor3 = Color3.fromRGB(218, 165, 50)
+    separator.BorderSizePixel = 0
+    separator.Parent = card
+
+    -- Item name.
     local text = Instance.new("TextLabel")
     text.Name = "Text"
     text.AnchorPoint = Vector2.new(0.5, 1)
-    text.Position = UDim2.new(0.5, 0, 1, 0)
-    text.Size = UDim2.new(1, 0, 0, 20)
+    text.Position = UDim2.new(0.5, 0, 1, -1)
+    text.Size = UDim2.new(1, -4, 0, 20)
     text.BackgroundTransparency = 1
     text.FontFace = coinyFont
     text.TextSize = 14
     text.TextColor3 = Color3.fromRGB(255, 255, 255)
     text.RichText = true
+    text.TextTruncate = Enum.TextTruncate.AtEnd
     text.Text = name
     text.Parent = card
 
