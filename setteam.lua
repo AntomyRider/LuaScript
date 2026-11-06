@@ -1,22 +1,40 @@
 local function setTeam()
-	local CLICK_SIGNALS = {"MouseButton1Click", "MouseButton1Down", "MouseButton1Up", "Activated"}
+    local teamPlayers = game:GetService("Players")
+    local teamPlayer = teamPlayers.LocalPlayer
+    local teamClickSignals = {
+        "MouseButton1Click",
+        "MouseButton1Down",
+        "MouseButton1Up",
+        "Activated"
+    }
 
-	local playerGui = ply:WaitForChild("PlayerGui")
-	local teamSelection = playerGui:WaitForChild("TeamSelection", 10)
-	if not teamSelection then return end
+    local teamPlayerGui = teamPlayer:WaitForChild("PlayerGui")
+    local teamSelection = teamPlayerGui:WaitForChild("TeamSelection", 10)
 
-	local button = teamSelection:WaitForChild("ROOT", 5)
-		and teamSelection.ROOT:WaitForChild("Frame", 5)
-		and teamSelection.ROOT.Frame:WaitForChild("content", 5)
-		and teamSelection.ROOT.Frame.content:WaitForChild("pirateFrame", 5)
-		and teamSelection.ROOT.Frame.content.pirateFrame:WaitForChild("pirate", 5)
-	if not button then return end
+    if not teamSelection then
+        return
+    end
 
-	for _, signalName in ipairs(CLICK_SIGNALS) do
-		for _, connection in ipairs(getconnections(button[signalName])) do
-			connection:Fire()
-		end
-	end
+    local teamRoot = teamSelection:WaitForChild("ROOT", 5)
+    if not teamRoot then return end
+
+    local teamFrame = teamRoot:WaitForChild("Frame", 5)
+    if not teamFrame then return end
+
+    local teamContent = teamFrame:WaitForChild("content", 5)
+    if not teamContent then return end
+
+    local teamPirateFrame = teamContent:WaitForChild("pirateFrame", 5)
+    if not teamPirateFrame then return end
+
+    local teamButton = teamPirateFrame:WaitForChild("pirate", 5)
+    if not teamButton then return end
+
+    for _, teamSignalName in ipairs(teamClickSignals) do
+        for _, teamConnection in ipairs(getconnections(teamButton[teamSignalName])) do
+            teamConnection:Fire()
+        end
+    end
 end
 
 setTeam()
