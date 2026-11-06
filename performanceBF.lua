@@ -12,6 +12,8 @@ local MobOnlyView = {
 	running = false,
 	cache = {},
 	ground = {},
+	notifications = nil,
+	notificationsParent = nil,
 }
 
 -- Constants.
@@ -20,6 +22,7 @@ local GROUND_INTERVAL = 0.5
 local GROUND_RAY_LENGTH = 50
 local KEEP_GROUND_VISIBLE = false
 local HIDE_OTHER_PLAYERS = false
+local REMOVE_NOTIFICATIONS = true
 local LOCAL_CLAY_COLOR = Color3.fromRGB(120, 200, 255)
 local PLAYER_CLAY_COLOR = Color3.fromRGB(255, 170, 200)
 
@@ -121,6 +124,34 @@ local function setProperty(instance, property, value)
 	end
 
 	instance[property] = value
+end
+
+---Remove the Notifications gui, remembering its parent for restoring.
+local function removeNotifications()
+	local playerGui = localPlayer:FindFirstChildOfClass("PlayerGui")
+	local notifications = playerGui and playerGui:FindFirstChild("Notifications")
+	if not notifications then
+		return
+	end
+
+	MobOnlyView.notifications = notifications
+	MobOnlyView.notificationsParent = playerGui
+	notifications.Parent = nil
+end
+
+---Put the Notifications gui back where it was.
+local function restoreNotifications()
+	local notifications = MobOnlyView.notifications
+	local parent = MobOnlyView.notificationsParent
+
+	if notifications and parent then
+		pcall(function()
+			notifications.Parent = parent
+		end)
+	end
+
+	MobOnlyView.notifications = nil
+	MobOnlyView.notificationsParent = nil
 end
 
 ---Turn a part of a living entity into flat clay.
@@ -265,11 +296,17 @@ function MobOnlyView.detach()
 
 	table.clear(MobOnlyView.connections)
 	restoreAll()
+	restoreNotifications()
 end
 
 ---Start the script.
 function MobOnlyView.init()
 	MobOnlyView.running = true
+
+	-- Remove the notifications gui first.
+	if REMOVE_NOTIFICATIONS then
+		pcall(removeNotifications)
+	end
 
 	-- Keep ground visible before hiding the rest.
 	if KEEP_GROUND_VISIBLE then
@@ -285,6 +322,18 @@ function MobOnlyView.init()
 			task.defer(pcall, processInstance, instance)
 		end)
 	)
+
+	-- Remove Notifications again if the game re-creates it (e.g. on respawn).
+	if REMOVE_NOTIFICATIONS then
+		table.insert(
+			MobOnlyView.connections,
+			localPlayer.DescendantAdded:Connect(function(instance)
+				if instance.Name == "Notifications" and instance.Parent == localPlayer:FindFirstChildOfClass("PlayerGui") then
+					task.defer(pcall, removeNotifications)
+				end
+			end)
+		)
+	end
 
 	-- Refresh ground under moving mobs.
 	if KEEP_GROUND_VISIBLE then
