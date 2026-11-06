@@ -170,7 +170,7 @@ background.Parent = screenGui
 local container = Instance.new("Frame")
 container.AnchorPoint = Vector2.new(0.5, 0.5)
 container.Position = UDim2.fromScale(0.5, 0.5)
-container.Size = UDim2.fromOffset(420, 360)
+container.Size = UDim2.fromOffset(420, 440)
 container.BackgroundTransparency = 1
 container.Parent = background
 
@@ -200,6 +200,63 @@ local statsLabel = createLabel(container, 3, 18, Color3.fromRGB(255, 255, 255))
 local taskLabel = createLabel(container, 4, 16, Color3.fromRGB(180, 180, 190))
 local timeLabel = createLabel(container, 5, 16, Color3.fromRGB(180, 180, 190))
 
+-- Item images synced from the main script.
+local itemHolder = Instance.new("Frame")
+itemHolder.Name = "ItemHolder"
+itemHolder.LayoutOrder = 6
+itemHolder.Size = UDim2.new(1, 0, 0, 76)
+itemHolder.BackgroundTransparency = 1
+itemHolder.Parent = container
+
+local itemList = Instance.new("ScrollingFrame")
+itemList.Name = "ItemList"
+itemList.Size = UDim2.fromScale(1, 1)
+itemList.BackgroundTransparency = 1
+itemList.BorderSizePixel = 0
+itemList.ScrollBarThickness = 2
+itemList.ScrollingDirection = Enum.ScrollingDirection.X
+itemList.CanvasSize = UDim2.fromOffset(0, 0)
+itemList.AutomaticCanvasSize = Enum.AutomaticSize.X
+itemList.Parent = itemHolder
+
+local itemLayout = Instance.new("UIListLayout")
+itemLayout.FillDirection = Enum.FillDirection.Horizontal
+itemLayout.HorizontalAlignment = Enum.HorizontalAlignment.Center
+itemLayout.VerticalAlignment = Enum.VerticalAlignment.Center
+itemLayout.SortOrder = Enum.SortOrder.LayoutOrder
+itemLayout.Padding = UDim.new(0, 8)
+itemLayout.Parent = itemList
+
+-- Update only the item images. No names, quantities, or status text.
+function ZeusxHub.setItems(items)
+    for _, child in ipairs(itemList:GetChildren()) do
+        if child:IsA("ImageLabel") then
+            child:Destroy()
+        end
+    end
+
+    for index, item in ipairs(items or {}) do
+        if item.asset and item.asset ~= "" then
+            local image = Instance.new("ImageLabel")
+            image.Name = "ItemImage"
+            image.Size = UDim2.fromOffset(58, 58)
+            image.BackgroundColor3 = Color3.fromRGB(25, 25, 32)
+            image.BackgroundTransparency = 0.15
+            image.BorderSizePixel = 0
+            image.Image = item.asset
+            image.ImageTransparency = item.owned and 0 or 0.5
+            image.ScaleType = Enum.ScaleType.Fit
+            image.LayoutOrder = index
+            image.Parent = itemList
+
+            local corner = Instance.new("UICorner")
+            corner.CornerRadius = UDim.new(0, 10)
+            corner.Parent = image
+
+        end
+    end
+end
+
 -- Toggle UI visibility.
 local uiVisible = true
 
@@ -209,6 +266,7 @@ local function toggleUI()
     statsLabel.Visible = uiVisible
     taskLabel.Visible = uiVisible
     timeLabel.Visible = uiVisible
+    itemHolder.Visible = uiVisible
 
     background.BackgroundTransparency = uiVisible and 0.15 or 1
 end
