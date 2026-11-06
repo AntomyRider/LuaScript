@@ -22,6 +22,20 @@ local ITEM_ASSETS = {
     ["Hallow Scythe"] = "rbxassetid://108136486901075",
 }
 
+-- Normalize inventory labels so names match ITEM_ASSETS consistently.
+local ITEM_NAME_LOOKUP = {}
+
+local function normalizeItemName(name)
+    name = tostring(name or "")
+    name = name:match("^(.-)%s*%[") or name
+    name = name:lower():gsub("[%s%p_]+", "")
+    return name
+end
+
+for itemName in pairs(ITEM_ASSETS) do
+    ITEM_NAME_LOOKUP[normalizeItemName(itemName)] = itemName
+end
+
 local INVENTORY_INTERVAL = 2
 local ITEM_SIZE = 56
 local OWNED_COLOR = Color3.fromRGB(80, 255, 120)
@@ -319,7 +333,6 @@ local function applyItems(items)
 
         icon.Image = item.asset or ""
         icon.ImageTransparency = item.owned and 0 or 0.65
-        icon.Stroke.Color = color
         card.Text.TextColor3 = color
         card.Text.Text = (item.count and item.count > 1) and string.format("%s x%d", item.name, item.count) or item.name
     end
@@ -338,47 +351,56 @@ local function getInventory(itemService, itemConfig, keys)
     local inventory = {}
     local items = itemService:GetItems(keys.QUANTITY)
 
-    if not items then return inventory end
+    if not items then
+        return inventory
+    end
 
     for _, item in pairs(items) do
-        if item.Value <= 0 then continue end
+        if not item.Value or item.Value <= 0 then
+            continue
+        end
 
         local success, config = pcall(function()
             return itemConfig.match(item.ItemId):unwrap()
         end)
 
-        if not success then continue end
+        if not success or not config or not config.Index then
+            continue
+        end
 
-        local label = config.Index.DebugLabel
-        local name = label:match("^(.-)%s*%[") or label
+        local debugLabel = config.Index.DebugLabel
+        local normalizedName = normalizeItemName(debugLabel)
+        local canonicalName = ITEM_NAME_LOOKUP[normalizedName]
 
-        inventory[name] = (inventory[name] or 0) + item.Value
+        if canonicalName then
+            inventory[canonicalName] = (inventory[canonicalName] or 0) + item.Value
+        end
     end
 
     return inventory
 end
 
--- Build the display list from BF_Config.Sword and the inventory.
+-- Display only items that are actually present in the inventory.
 local function buildItems(inventory)
-    local config = getgenv().BF_Config
     local list = {}
 
-    if not config or not config.Sword then return list end
+    for name, asset in pairs(ITEM_ASSETS) do
+        local count = inventory[name] or 0
 
-    for name, enabled in pairs(config.Sword) do
-        if enabled then
-            local count = inventory[name] or 0
-
+        if count > 0 then
             table.insert(list, {
                 name = name,
-                asset = ITEM_ASSETS[name],
-                owned = count > 0,
+                asset = asset,
+                owned = true,
                 count = count,
             })
         end
     end
 
-    table.sort(list, function(a, b) return a.name < b.name end)
+    table.sort(list, function(a, b)
+        return a.name < b.name
+    end)
+
     return list
 end
 
