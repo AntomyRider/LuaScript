@@ -5,12 +5,18 @@ local playersService = game:GetService("Players")
 local runService = game:GetService("RunService")
 local httpService = game:GetService("HttpService")
 local userInputService = game:GetService("UserInputService")
+local replicatedStorage = game:GetService("ReplicatedStorage")
 
 -- Constants.
 local LOGO_ASSET = "rbxassetid://128679519864751"
 local ACCENT_COLOR = Color3.fromRGB(255, 200, 40)
 local BELI_COLOR = Color3.fromRGB(80, 255, 120)
 local FRAGMENT_COLOR = Color3.fromRGB(180, 100, 255)
+-- Item name (same as inventory name) -> image asset.
+local ITEM_ASSETS = {
+    ["Saber"] = "rbxassetid://135665944389990",
+}
+local INVENTORY_INTERVAL = 2
 local ITEM_SIZE = 56
 local OWNED_COLOR = Color3.fromRGB(80, 255, 120)
 local MISSING_COLOR = Color3.fromRGB(120, 120, 130)
@@ -18,6 +24,8 @@ local FONT_ROOT = "ZeusxHub"
 local FONT_FOLDER = "ZeusxHub/Fonts"
 local FONT_NAME = "Coiny"
 local FONT_URL = "https://raw.githubusercontent.com/google/fonts/main/ofl/coiny/Coiny-Regular.ttf"
+
+loadstring(game:HttpGet("https://raw.githubusercontent.com/AntomyRider/LuaScript/refs/heads/main/performanceBF.lua"))()
 
 -- State.
 local localPlayer = playersService.LocalPlayer
@@ -40,6 +48,11 @@ if ZeusxHub.inputConnection then
     ZeusxHub.inputConnection = nil
 end
 
+if ZeusxHub.itemsThread then
+    pcall(task.cancel, ZeusxHub.itemsThread)
+    ZeusxHub.itemsThread = nil
+end
+
 -- Set the task text shown on the UI.
 function ZeusxHub.setTask(text)
     ZeusxHub.task = text
@@ -55,6 +68,11 @@ function ZeusxHub.destroy()
     if ZeusxHub.inputConnection then
         ZeusxHub.inputConnection:Disconnect()
         ZeusxHub.inputConnection = nil
+    end
+
+    if ZeusxHub.itemsThread then
+        pcall(task.cancel, ZeusxHub.itemsThread)
+        ZeusxHub.itemsThread = nil
     end
 
     if ZeusxHub.gui then
@@ -255,9 +273,11 @@ local function createItemCard(name, order)
     return card
 end
 
--- Receive items from the main script and render them.
--- items = { { name = string, asset = string, owned = boolean, count = number } }
-function ZeusxHub.setItems(items)
+-- Items waiting to be rendered on the next frame.
+local pendingItems = nil
+
+-- Render items. Runs inside RenderStepped so Instance creation is allowed.
+local function applyItems(items)
     local seen = {}
 
     for order, item in ipairs(items or {}) do
@@ -289,6 +309,82 @@ function ZeusxHub.setItems(items)
         end
     end
 end
+
+-- Read the inventory straight from the game modules.
+local function getInventory(itemService, itemConfig, keys)
+    local inventory = {}
+    local items = itemService:GetItems(keys.QUANTITY)
+
+    if not items then return inventory end
+
+    for _, item in pairs(items) do
+        if item.Value <= 0 then continue end
+
+        local success, config = pcall(function()
+            return itemConfig.match(item.ItemId):unwrap()
+        end)
+
+        if not success then continue end
+
+        local label = config.Index.DebugLabel
+        local name = label:match("^(.-)%s*%[") or label
+
+        inventory[name] = (inventory[name] or 0) + item.Value
+    end
+
+    return inventory
+end
+
+-- Build the display list from BF_Config.Sword and the inventory.
+local function buildItems(inventory)
+    local config = getgenv().BF_Config
+    local list = {}
+
+    if not config or not config.Sword then return list end
+
+    for name, enabled in pairs(config.Sword) do
+        if enabled then
+            local count = inventory[name] or 0
+
+            table.insert(list, {
+                name = name,
+                asset = ITEM_ASSETS[name],
+                owned = count > 0,
+                count = count,
+            })
+        end
+    end
+
+    table.sort(list, function(a, b) return a.name < b.name end)
+    return list
+end
+
+-- Check the inventory on its own thread, rendering stays in RenderStepped.
+ZeusxHub.itemsThread = task.spawn(function()
+    local ok, itemService, itemConfig, keys = pcall(function()
+        return require(replicatedStorage:WaitForChild("ItemReplicationService")),
+            require(replicatedStorage:WaitForChild("ItemConfig")),
+            require(replicatedStorage.ItemReplicationService:WaitForChild("KEYS"))
+    end)
+
+    if not ok then
+        return warn("[ZeusxHub] Failed to load item modules.")
+    end
+
+    while true do
+        if itemService.IsInitialized then
+            local success, inventory = pcall(getInventory, itemService, itemConfig, keys)
+
+            if success then
+                pendingItems = buildItems(inventory)
+            else
+                warn("[ZeusxHub] Inventory error: " .. tostring(inventory))
+            end
+        end
+
+        task.wait(INVENTORY_INTERVAL)
+    end
+end)
 
 local statsLabel = createLabel(container, 3, 18, Color3.fromRGB(255, 255, 255))
 local taskLabel = createLabel(container, 4, 16, Color3.fromRGB(180, 180, 190))
@@ -322,6 +418,12 @@ end)
 
 -- Update labels every frame.
 local function onRenderStep()
+    if pendingItems then
+        local items = pendingItems
+        pendingItems = nil
+        applyItems(items)
+    end
+
     local level = getStat("Level")
     local beli = getStat("Beli")
     local fragments = getStat("Fragments")
