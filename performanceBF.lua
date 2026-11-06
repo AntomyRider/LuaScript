@@ -23,6 +23,7 @@ local GROUND_RAY_LENGTH = 50
 local KEEP_GROUND_VISIBLE = false
 local HIDE_OTHER_PLAYERS = false
 local REMOVE_NOTIFICATIONS = true
+local REMOVE_WATER_EFFECTS = true
 local LOCAL_CLAY_COLOR = Color3.fromRGB(120, 200, 255)
 local PLAYER_CLAY_COLOR = Color3.fromRGB(255, 170, 200)
 
@@ -44,6 +45,14 @@ local CLOTHING_CLASSES = {
 	Shirt = "ShirtTemplate",
 	Pants = "PantsTemplate",
 	ShirtGraphic = "Graphic",
+}
+
+-- Terrain water properties and the value that removes their effect.
+local WATER_PROPERTIES = {
+	WaterTransparency = 1,
+	WaterReflectance = 0,
+	WaterWaveSize = 0,
+	WaterWaveSpeed = 0,
 }
 
 -- Services.
@@ -124,6 +133,18 @@ local function setProperty(instance, property, value)
 	end
 
 	instance[property] = value
+end
+
+---Flatten the terrain water so it has no visual effect.
+local function removeWaterEffects()
+	local terrain = workspaceService:FindFirstChildOfClass("Terrain")
+	if not terrain then
+		return
+	end
+
+	for property, value in pairs(WATER_PROPERTIES) do
+		pcall(setProperty, terrain, property, value)
+	end
 end
 
 ---Remove the Notifications gui, remembering its parent for restoring.
@@ -308,6 +329,11 @@ function MobOnlyView.init()
 		pcall(removeNotifications)
 	end
 
+	-- Remove the water effects of the terrain.
+	if REMOVE_WATER_EFFECTS then
+		pcall(removeWaterEffects)
+	end
+
 	-- Keep ground visible before hiding the rest.
 	if KEEP_GROUND_VISIBLE then
 		pcall(updateGround)
@@ -333,6 +359,23 @@ function MobOnlyView.init()
 				end
 			end)
 		)
+	end
+
+	-- Reapply the water values if the game changes them back.
+	if REMOVE_WATER_EFFECTS then
+		local terrain = workspaceService:FindFirstChildOfClass("Terrain")
+		if terrain then
+			for property in pairs(WATER_PROPERTIES) do
+				table.insert(
+					MobOnlyView.connections,
+					terrain:GetPropertyChangedSignal(property):Connect(function()
+						if terrain[property] ~= WATER_PROPERTIES[property] then
+							pcall(setProperty, terrain, property, WATER_PROPERTIES[property])
+						end
+					end)
+				)
+			end
+		end
 	end
 
 	-- Refresh ground under moving mobs.
