@@ -12,17 +12,17 @@ local LOGO_ASSET = "rbxassetid://128679519864751"
 local ACCENT_COLOR = Color3.fromRGB(255, 200, 40)
 local BELI_COLOR = Color3.fromRGB(80, 255, 120)
 local FRAGMENT_COLOR = Color3.fromRGB(180, 100, 255)
--- Item name (same as inventory name) -> image asset.
+
 local ITEM_ASSETS = {
     ["Godhuman"] = "rbxassetid://75176997304682",
-	["Saber"] = "rbxassetid://135665944389990",
+    ["Saber"] = "rbxassetid://135665944389990",
     ["Yama"] = "rbxassetid://138342732332076",
     ["Tushita"] = "rbxassetid://127659543896119",
     ["Cursed Dual Katana"] = "rbxassetid://139876489530430",
     ["Hallow Scythe"] = "rbxassetid://108136486901075",
 }
 
--- Normalize inventory labels so names match ITEM_ASSETS consistently.
+-- Normalize inventory labels.
 local ITEM_NAME_LOOKUP = {}
 
 local function normalizeItemName(name)
@@ -73,12 +73,12 @@ if ZeusxHub.itemsThread then
     ZeusxHub.itemsThread = nil
 end
 
--- Set the task text shown on the UI.
+-- Set task text.
 function ZeusxHub.setTask(text)
     ZeusxHub.task = text
 end
 
--- Destroy the UI and stop updating.
+-- Destroy UI.
 function ZeusxHub.destroy()
     if ZeusxHub.connection then
         ZeusxHub.connection:Disconnect()
@@ -101,7 +101,7 @@ function ZeusxHub.destroy()
     end
 end
 
--- Download the font file and build a Font object from it.
+-- Load font.
 local function loadGoogleFont(name, url)
     if not isfolder(FONT_ROOT) then
         makefolder(FONT_ROOT)
@@ -114,7 +114,6 @@ local function loadGoogleFont(name, url)
     local fontPath = string.format("%s/%s.ttf", FONT_FOLDER, name)
     local familyPath = string.format("%s/%s.json", FONT_FOLDER, name)
 
-    -- Download only once, then reuse the cached file.
     if not isfile(fontPath) then
         local response = request({ Url = url, Method = "GET" })
 
@@ -126,7 +125,6 @@ local function loadGoogleFont(name, url)
         writefile(fontPath, response.Body)
     end
 
-    -- Roblox needs a family json that points to the font file.
     local family = {
         name = name,
         faces = {
@@ -143,10 +141,9 @@ local function loadGoogleFont(name, url)
     return Font.new(getcustomasset(familyPath))
 end
 
--- Load the font before any label is created.
 local coinyFont = loadGoogleFont(FONT_NAME, FONT_URL)
 
--- Format seconds into HH:MM:SS.
+-- Format time.
 local function formatTime(seconds)
     local hours = math.floor(seconds / 3600)
     local minutes = math.floor((seconds % 3600) / 60)
@@ -155,7 +152,7 @@ local function formatTime(seconds)
     return string.format("%02d:%02d:%02d", hours, minutes, secs)
 end
 
--- Format number with thousands separator.
+-- Format number.
 local function formatNumber(value)
     local text = tostring(math.floor(value or 0))
     local formatted = text:reverse():gsub("(%d%d%d)", "%1,"):reverse():gsub("^,", "")
@@ -163,12 +160,12 @@ local function formatNumber(value)
     return formatted
 end
 
--- Wrap text in a RichText color tag.
+-- RichText color.
 local function colorize(text, color)
     return string.format('<font color="#%s">%s</font>', color:ToHex(), text)
 end
 
--- Read stat from player Data folder safely.
+-- Read player stat.
 local function getStat(name)
     local data = localPlayer:FindFirstChild("Data")
     local stat = data and data:FindFirstChild(name)
@@ -176,7 +173,7 @@ local function getStat(name)
     return stat and stat.Value or 0
 end
 
--- Create a text label.
+-- Create label.
 local function createLabel(parent, order, size, color)
     local label = Instance.new("TextLabel")
     label.BackgroundTransparency = 1
@@ -192,7 +189,7 @@ local function createLabel(parent, order, size, color)
     return label
 end
 
--- Build the gui.
+-- Build GUI.
 local screenGui = Instance.new("ScreenGui")
 screenGui.Name = "ZeusxHubStatus"
 screenGui.ResetOnSpawn = false
@@ -227,7 +224,7 @@ logoHolder.Size = UDim2.fromOffset(180, 180)
 logoHolder.BackgroundTransparency = 1
 logoHolder.Parent = container
 
--- Logo button.
+-- Main logo.
 local logo = Instance.new("ImageButton")
 logo.Size = UDim2.fromScale(1, 1)
 logo.BackgroundTransparency = 1
@@ -235,7 +232,31 @@ logo.Image = LOGO_ASSET
 logo.AutoButtonColor = false
 logo.Parent = logoHolder
 
--- Row that holds the item cards sent from the main script.
+-- Mini icon for hidden UI.
+local miniIcon = Instance.new("ImageButton")
+miniIcon.Name = "MiniIcon"
+miniIcon.AnchorPoint = Vector2.new(0.5, 0)
+miniIcon.Position = UDim2.new(0.5, 0, 0, 35)
+miniIcon.Size = UDim2.fromOffset(42, 42)
+miniIcon.BackgroundColor3 = Color3.fromRGB(20, 20, 25)
+miniIcon.BackgroundTransparency = 0.1
+miniIcon.BorderSizePixel = 0
+miniIcon.Image = LOGO_ASSET
+miniIcon.ScaleType = Enum.ScaleType.Fit
+miniIcon.AutoButtonColor = true
+miniIcon.Visible = false
+miniIcon.Parent = screenGui
+
+local miniCorner = Instance.new("UICorner")
+miniCorner.CornerRadius = UDim.new(1, 0)
+miniCorner.Parent = miniIcon
+
+local miniStroke = Instance.new("UIStroke")
+miniStroke.Color = ACCENT_COLOR
+miniStroke.Thickness = 1.5
+miniStroke.Parent = miniIcon
+
+-- Items holder.
 local itemsHolder = Instance.new("Frame")
 itemsHolder.LayoutOrder = 5
 itemsHolder.Size = UDim2.new(1, 0, 0, ITEM_SIZE + 26)
@@ -252,8 +273,7 @@ itemsLayout.Parent = itemsHolder
 
 local itemCards = {}
 
--- Create one item card (icon + name).
--- Create one item card (icon + name).
+-- Create item card.
 local function createItemCard(name, order)
     local card = Instance.new("Frame")
     card.Name = "ItemCard"
@@ -264,14 +284,12 @@ local function createItemCard(name, order)
     card.BorderSizePixel = 0
     card.Parent = itemsHolder
 
-    -- Outer border.
     local outerStroke = Instance.new("UIStroke")
     outerStroke.Color = Color3.fromRGB(184, 134, 45)
     outerStroke.Thickness = 1.5
     outerStroke.Transparency = 0
     outerStroke.Parent = card
 
-    -- Item icon.
     local icon = Instance.new("ImageLabel")
     icon.Name = "Icon"
     icon.AnchorPoint = Vector2.new(0.5, 0)
@@ -282,7 +300,6 @@ local function createItemCard(name, order)
     icon.ScaleType = Enum.ScaleType.Fit
     icon.Parent = card
 
-    -- Separator border.
     local separator = Instance.new("Frame")
     separator.Name = "Separator"
     separator.AnchorPoint = Vector2.new(0.5, 0)
@@ -292,7 +309,6 @@ local function createItemCard(name, order)
     separator.BorderSizePixel = 0
     separator.Parent = card
 
-    -- Item name.
     local text = Instance.new("TextLabel")
     text.Name = "Text"
     text.AnchorPoint = Vector2.new(0.5, 1)
@@ -310,10 +326,10 @@ local function createItemCard(name, order)
     return card
 end
 
--- Items waiting to be rendered on the next frame.
+-- Pending items.
 local pendingItems = nil
 
--- Render items. Runs inside RenderStepped so Instance creation is allowed.
+-- Apply inventory items.
 local function applyItems(items)
     local seen = {}
 
@@ -334,10 +350,11 @@ local function applyItems(items)
         icon.Image = item.asset or ""
         icon.ImageTransparency = item.owned and 0 or 0.65
         card.Text.TextColor3 = color
-        card.Text.Text = (item.count and item.count > 1) and string.format("%s x%d", item.name, item.count) or item.name
+        card.Text.Text = (item.count and item.count > 1)
+            and string.format("%s x%d", item.name, item.count)
+            or item.name
     end
 
-    -- Remove cards that are no longer requested.
     for name, card in pairs(itemCards) do
         if not seen[name] then
             card:Destroy()
@@ -346,7 +363,7 @@ local function applyItems(items)
     end
 end
 
--- Read the inventory straight from the game modules.
+-- Read inventory.
 local function getInventory(itemService, itemConfig, keys)
     local inventory = {}
     local items = itemService:GetItems(keys.QUANTITY)
@@ -380,7 +397,7 @@ local function getInventory(itemService, itemConfig, keys)
     return inventory
 end
 
--- Display only items that are actually present in the inventory.
+-- Build owned items list.
 local function buildItems(inventory)
     local list = {}
 
@@ -404,7 +421,7 @@ local function buildItems(inventory)
     return list
 end
 
--- Check the inventory on its own thread, rendering stays in RenderStepped.
+-- Inventory thread.
 ZeusxHub.itemsThread = task.spawn(function()
     local ok, itemService, itemConfig, keys = pcall(function()
         return require(replicatedStorage:WaitForChild("ItemReplicationService")),
@@ -431,6 +448,7 @@ ZeusxHub.itemsThread = task.spawn(function()
     end
 end)
 
+-- Labels.
 local statsLabel = createLabel(container, 2, 18, Color3.fromRGB(255, 255, 255))
 local taskLabel = createLabel(container, 3, 16, Color3.fromRGB(180, 180, 190))
 local timeLabel = createLabel(container, 4, 16, Color3.fromRGB(180, 180, 190))
@@ -441,20 +459,21 @@ local uiVisible = true
 local function toggleUI()
     uiVisible = not uiVisible
 
-    itemsHolder.Visible = uiVisible
-    statsLabel.Visible = uiVisible
-    taskLabel.Visible = uiVisible
-    timeLabel.Visible = uiVisible
-
-    background.BackgroundTransparency = uiVisible and 0.15 or 1
+    background.Visible = uiVisible
+    miniIcon.Visible = not uiVisible
 end
 
--- Click logo to toggle.
+-- Click main logo to hide.
 logo.MouseButton1Click:Connect(toggleUI)
+
+-- Click mini icon to restore.
+miniIcon.MouseButton1Click:Connect(toggleUI)
 
 -- Press LeftAlt to toggle.
 ZeusxHub.inputConnection = userInputService.InputBegan:Connect(function(input, gameProcessed)
-    if gameProcessed then return end
+    if gameProcessed then
+        return
+    end
 
     if input.KeyCode == Enum.KeyCode.LeftAlt then
         toggleUI()
@@ -482,6 +501,7 @@ local function onRenderStep()
     timeLabel.Text = "Time: " .. formatTime(os.clock() - startTime)
 end
 
+-- Start update.
 ZeusxHub.gui = screenGui
 ZeusxHub.connection = runService.RenderStepped:Connect(onRenderStep)
 
