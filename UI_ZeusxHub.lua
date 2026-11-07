@@ -12,6 +12,8 @@ local LOGO_ASSET = "rbxassetid://128679519864751"
 local ACCENT_COLOR = Color3.fromRGB(255, 200, 40)
 local BELI_COLOR = Color3.fromRGB(80, 255, 120)
 local FRAGMENT_COLOR = Color3.fromRGB(180, 100, 255)
+local MASTERY_COLOR = Color3.fromRGB(100, 200, 255)
+local AWAKEN_FULL_COLOR = Color3.fromRGB(255, 120, 120)
 
 local ITEM_ASSETS = {
     ["Godhuman"] = "rbxassetid://75176997304682",
@@ -37,6 +39,8 @@ for itemName in pairs(ITEM_ASSETS) do
 end
 
 local INVENTORY_INTERVAL = 2
+local AWAKEN_INTERVAL = 5
+local AWAKEN_REMOTE = "getAwakenedAbilities"
 local ITEM_SIZE = 56
 local OWNED_COLOR = Color3.fromRGB(80, 255, 120)
 local MISSING_COLOR = Color3.fromRGB(120, 120, 130)
@@ -50,6 +54,7 @@ loadstring(game:HttpGet("https://raw.githubusercontent.com/AntomyRider/LuaScript
 -- State.
 local localPlayer = playersService.LocalPlayer
 local startTime = os.clock()
+local commF = replicatedStorage:WaitForChild("Remotes"):WaitForChild("CommF_")
 
 shared.ZeusxHub = shared.ZeusxHub or { task = "Idle" }
 local ZeusxHub = shared.ZeusxHub
@@ -206,7 +211,7 @@ background.Parent = screenGui
 local container = Instance.new("Frame")
 container.AnchorPoint = Vector2.new(0.5, 0.5)
 container.Position = UDim2.fromScale(0.5, 0.5)
-container.Size = UDim2.fromOffset(520, 430)
+container.Size = UDim2.fromOffset(520, 460)
 container.BackgroundTransparency = 1
 container.Parent = background
 
@@ -258,7 +263,7 @@ miniStroke.Parent = miniIcon
 
 -- Items holder.
 local itemsHolder = Instance.new("Frame")
-itemsHolder.LayoutOrder = 5
+itemsHolder.LayoutOrder = 6
 itemsHolder.Size = UDim2.new(1, 0, 0, ITEM_SIZE + 26)
 itemsHolder.BackgroundTransparency = 1
 itemsHolder.Parent = container
@@ -326,8 +331,9 @@ local function createItemCard(name, order)
     return card
 end
 
--- Pending items.
+-- Pending data from the inventory thread.
 local pendingItems = nil
+local pendingFruit = nil
 
 -- Apply inventory items.
 local function applyItems(items)
@@ -421,6 +427,90 @@ local function buildItems(inventory)
     return list
 end
 
+-- Get the fruit the player has currently eaten.
+local function getEatenFruit()
+    local data = localPlayer:FindFirstChild("Data")
+    local value = data and data:FindFirstChild("DevilFruit")
+
+    if value and value.Value ~= "" then
+        return value.Value
+    end
+
+    return nil
+end
+
+-- Get only the first word of a fruit name (Ice-Ice -> Ice).
+local function getShortFruitName(name)
+    return name:match("^[^%-%s]+") or name
+end
+
+-- Read mastery of a fruit from item replication.
+local function getFruitMastery(itemService, itemConfig, keys, fruit)
+    local items = itemService:GetItems(keys.MASTERY)
+    local shortName = getShortFruitName(fruit)
+
+    for _, item in pairs(items or {}) do
+        local success, config = pcall(function()
+            return itemConfig.match(item.ItemId):unwrap()
+        end)
+
+        if not success or not config or not config.Index then
+            continue
+        end
+
+        local label = config.Index.DebugLabel
+
+        if label:find(fruit, 1, true) or label:find(shortName, 1, true) then
+            return item.Value
+        end
+    end
+
+    return 0
+end
+
+-- Count awakened skills against total skills.
+local function getAwakenCount()
+    local success, data = pcall(function()
+        return commF:InvokeServer(AWAKEN_REMOTE)
+    end)
+
+    if not success or type(data) ~= "table" then
+        return 0, 0
+    end
+
+    local awakened, total = 0, 0
+
+    for _, info in pairs(data) do
+        total += 1
+
+        if type(info) == "table" and info.Awakened then
+            awakened += 1
+        end
+    end
+
+    return awakened, total
+end
+
+-- Format the fruit status line.
+local function formatFruit(info)
+    if not info then
+        return colorize("Fruit: None", MISSING_COLOR)
+    end
+
+    local full = info.total > 0 and info.awake >= info.total
+
+    local awaken = full
+        and colorize("Awakening Fully", AWAKEN_FULL_COLOR)
+        or string.format("%d/%d", info.awake, info.total)
+
+    return string.format(
+        "%s | %s | %s",
+        colorize(getShortFruitName(info.name), ACCENT_COLOR),
+        colorize("Mastery " .. formatNumber(info.mastery), MASTERY_COLOR),
+        awaken
+    )
+end
+
 -- Inventory thread.
 ZeusxHub.itemsThread = task.spawn(function()
     local ok, itemService, itemConfig, keys = pcall(function()
@@ -433,6 +523,8 @@ ZeusxHub.itemsThread = task.spawn(function()
         return warn("[ZeusxHub] Failed to load item modules.")
     end
 
+    local lastAwaken, awakenCache, totalCache, lastEaten = 0, 0, 0, nil
+
     while true do
         if itemService.IsInitialized then
             local success, inventory = pcall(getInventory, itemService, itemConfig, keys)
@@ -442,6 +534,33 @@ ZeusxHub.itemsThread = task.spawn(function()
             else
                 warn("[ZeusxHub] Inventory error: " .. tostring(inventory))
             end
+
+            local eaten = getEatenFruit()
+
+            if eaten then
+                -- Refresh awaken data right away when the fruit changes.
+                if eaten ~= lastEaten then
+                    lastEaten = eaten
+                    lastAwaken = 0
+                end
+
+                if os.clock() - lastAwaken >= AWAKEN_INTERVAL then
+                    lastAwaken = os.clock()
+                    awakenCache, totalCache = getAwakenCount()
+                end
+
+                local okMastery, mastery = pcall(getFruitMastery, itemService, itemConfig, keys, eaten)
+
+                pendingFruit = {
+                    name = eaten,
+                    mastery = okMastery and mastery or 0,
+                    awake = awakenCache,
+                    total = totalCache,
+                }
+            else
+                lastEaten = nil
+                pendingFruit = false
+            end
         end
 
         task.wait(INVENTORY_INTERVAL)
@@ -450,8 +569,9 @@ end)
 
 -- Labels.
 local statsLabel = createLabel(container, 2, 18, Color3.fromRGB(255, 255, 255))
-local taskLabel = createLabel(container, 3, 16, Color3.fromRGB(180, 180, 190))
-local timeLabel = createLabel(container, 4, 16, Color3.fromRGB(180, 180, 190))
+local fruitLabel = createLabel(container, 3, 16, Color3.fromRGB(255, 255, 255))
+local taskLabel = createLabel(container, 4, 16, Color3.fromRGB(180, 180, 190))
+local timeLabel = createLabel(container, 5, 16, Color3.fromRGB(180, 180, 190))
 
 -- Toggle UI visibility.
 local uiVisible = true
@@ -497,6 +617,11 @@ local function onRenderStep()
     local fragmentText = colorize("Fragment: " .. formatNumber(fragments), FRAGMENT_COLOR)
 
     statsLabel.Text = string.format("%s | %s | %s", levelText, beliText, fragmentText)
+
+    if pendingFruit ~= nil then
+        fruitLabel.Text = formatFruit(pendingFruit or nil)
+    end
+
     taskLabel.Text = "Task: " .. tostring(ZeusxHub.task)
     timeLabel.Text = "Time: " .. formatTime(os.clock() - startTime)
 end
