@@ -259,10 +259,10 @@ local function createText(parent, name, text, size, color, position, dimensions)
 	label.Name = name
 	label.BackgroundTransparency = 1
 	label.Position = position or UDim2.new()
-	label.Size = dimensions or UDim2.new(1, 0, 0, 22)
+	label.Size = dimensions or UDim2.new(1, 0, 0, 20)
 	label.FontFace = vtFont
 	label.Text = text or ""
-	label.TextSize = size or 20
+	label.TextSize = size or 18
 	label.TextColor3 = color or THEME.Text
 	label.TextXAlignment = Enum.TextXAlignment.Left
 	label.TextYAlignment = Enum.TextYAlignment.Center
@@ -328,7 +328,7 @@ local function createColumns(section, count, height, inset)
 			column,
 			"Value",
 			"-",
-			24,
+			20,
 			THEME.Text,
 			UDim2.fromOffset(6, 0),
 			UDim2.new(1, -12, 1, 0)
@@ -383,13 +383,13 @@ mainLayout.SortOrder = Enum.SortOrder.LayoutOrder
 mainLayout.Padding = UDim.new(0, 8)
 mainLayout.Parent = container
 
--- Section 1: Profile (avatar, name, level / beli / fragment).
-local playerSection = createSection(container, "PlayerSection", 88, 1)
+-- Section 1: Profile (avatar, name, level / beli / fragment stacked).
+local playerSection = createSection(container, "PlayerSection", 104, 1)
 
 local profileImage = Instance.new("ImageButton")
 profileImage.Name = "PlayerThumbnail"
 profileImage.Position = UDim2.fromOffset(10, 10)
-profileImage.Size = UDim2.fromOffset(68, 68)
+profileImage.Size = UDim2.fromOffset(84, 84)
 profileImage.BackgroundColor3 = THEME.Card
 profileImage.BorderSizePixel = 0
 profileImage.AutoButtonColor = false
@@ -403,30 +403,51 @@ local playerNameLabel = createText(
 	playerSection,
 	"PlayerName",
 	localPlayer.DisplayName .. "  (@" .. localPlayer.Name .. ")",
-	28,
+	22,
 	THEME.GoldLight,
-	UDim2.fromOffset(90, 8),
-	UDim2.new(1, -102, 0, 30)
+	UDim2.fromOffset(106, 6),
+	UDim2.new(1, -118, 0, 24)
 )
 
 local statsRow = Instance.new("Frame")
 statsRow.Name = "Stats"
-statsRow.Position = UDim2.fromOffset(90, 42)
-statsRow.Size = UDim2.new(1, -102, 0, 34)
+statsRow.Position = UDim2.fromOffset(106, 34)
+statsRow.Size = UDim2.new(1, -118, 0, 64)
 statsRow.BackgroundColor3 = THEME.Card
 statsRow.BorderSizePixel = 0
 statsRow.Parent = playerSection
 
 addCorner(statsRow, 8)
 
-local statColumns = createColumns(statsRow, 3, 34, 0)
-local levelLabel = statColumns[1]
-local beliLabel = statColumns[2]
-local fragmentLabel = statColumns[3]
+local statsPadding = Instance.new("UIPadding")
+statsPadding.PaddingLeft = UDim.new(0, 10)
+statsPadding.PaddingTop = UDim.new(0, 2)
+statsPadding.Parent = statsRow
 
-levelLabel.TextColor3 = THEME.Text
-beliLabel.TextColor3 = THEME.Green
-fragmentLabel.TextColor3 = THEME.Purple
+local statsLayout = Instance.new("UIListLayout")
+statsLayout.FillDirection = Enum.FillDirection.Vertical
+statsLayout.SortOrder = Enum.SortOrder.LayoutOrder
+statsLayout.Parent = statsRow
+
+-- Create one stacked stat line.
+local function createStatLine(name, color, order)
+	local line = createText(
+		statsRow,
+		name,
+		"",
+		18,
+		color,
+		nil,
+		UDim2.new(1, -10, 0, 20)
+	)
+	line.LayoutOrder = order
+
+	return line
+end
+
+local levelLabel = createStatLine("Level", THEME.Text, 1)
+local beliLabel = createStatLine("Beli", THEME.Green, 2)
+local fragmentLabel = createStatLine("Fragment", THEME.Purple, 3)
 
 -- Load player thumbnail for the profile and the minimized button.
 local playerThumbnail = ""
@@ -452,8 +473,8 @@ task.spawn(function()
 end)
 
 -- Section 2: Fruit / Mastery / Awakening.
-local fruitSection = createSection(container, "FruitSection", 44, 2)
-local fruitColumns = createColumns(fruitSection, 3, 44, 6)
+local fruitSection = createSection(container, "FruitSection", 36, 2)
+local fruitColumns = createColumns(fruitSection, 3, 36, 6)
 local fruitLabel = fruitColumns[1]
 local masteryLabel = fruitColumns[2]
 local awakeningLabel = fruitColumns[3]
@@ -463,16 +484,16 @@ masteryLabel.Text = "Mastery : -"
 awakeningLabel.Text = "Awaken : 0/0"
 
 -- Section 3: Current task and runtime.
-local taskSection = createSection(container, "TaskSection", 44, 3)
+local taskSection = createSection(container, "TaskSection", 36, 3)
 
 local taskIcon = createText(
 	taskSection,
 	"TaskIcon",
 	"✦",
-	24,
+	20,
 	THEME.Gold,
 	UDim2.fromOffset(12, 0),
-	UDim2.fromOffset(24, 44)
+	UDim2.fromOffset(24, 36)
 )
 taskIcon.TextXAlignment = Enum.TextXAlignment.Center
 
@@ -480,7 +501,7 @@ local taskLabel = createText(
 	taskSection,
 	"Task",
 	"Idle",
-	24,
+	20,
 	THEME.Text,
 	UDim2.fromOffset(44, 0),
 	UDim2.new(1, -170, 1, 0)
@@ -490,10 +511,10 @@ local timeLabel = createText(
 	taskSection,
 	"Runtime",
 	"00:00:00",
-	24,
+	20,
 	THEME.Muted,
 	UDim2.new(1, -118, 0, 0),
-	UDim2.fromOffset(106, 44)
+	UDim2.fromOffset(106, 36)
 )
 timeLabel.TextXAlignment = Enum.TextXAlignment.Right
 
@@ -514,11 +535,12 @@ local function createItemGrid(section, name, height)
 	scrolling.ScrollingDirection = Enum.ScrollingDirection.Y
 	scrolling.Parent = section
 
+	-- Horizontal cards, 3 per row.
 	local grid = Instance.new("UIGridLayout")
-	grid.CellSize = UDim2.fromOffset(84, 78)
+	grid.CellSize = UDim2.fromOffset(166, 44)
 	grid.CellPadding = UDim2.fromOffset(6, 6)
 	grid.FillDirection = Enum.FillDirection.Horizontal
-	grid.FillDirectionMaxCells = 6
+	grid.FillDirectionMaxCells = 3
 	grid.SortOrder = Enum.SortOrder.LayoutOrder
 	grid.Parent = scrolling
 
@@ -526,8 +548,8 @@ local function createItemGrid(section, name, height)
 end
 
 -- Section 4: Melee / Sword (hidden when empty).
-local combatSection = createSection(container, "CombatSection", 100, 4)
-local combatGrid = createItemGrid(combatSection, "CombatItems", 84)
+local combatSection = createSection(container, "CombatSection", 112, 4)
+local combatGrid = createItemGrid(combatSection, "CombatItems", 96)
 
 -- Section 5: Accessories / Items (hidden when empty).
 local itemsSection = createSection(container, "ItemsSection", 178, 5)
@@ -584,7 +606,7 @@ local function applySprite(icon, asset)
 	icon.Visible = true
 end
 
--- Create an item card.
+-- Create a horizontal item card: icon | name | xCount (top right).
 local function createItemCard(item, order, parent)
 	local card = Instance.new("Frame")
 	card.Name = "Item_" .. item.name:gsub("%W", "")
@@ -598,9 +620,8 @@ local function createItemCard(item, order, parent)
 
 	local icon = Instance.new("ImageLabel")
 	icon.Name = "Icon"
-	icon.AnchorPoint = Vector2.new(0.5, 0)
-	icon.Position = UDim2.new(0.5, 0, 0, 5)
-	icon.Size = UDim2.fromOffset(38, 38)
+	icon.Position = UDim2.fromOffset(6, 6)
+	icon.Size = UDim2.fromOffset(32, 32)
 	icon.BackgroundTransparency = 1
 	icon.BorderSizePixel = 0
 	icon.ScaleType = Enum.ScaleType.Fit
@@ -612,10 +633,10 @@ local function createItemCard(item, order, parent)
 		card,
 		"Placeholder",
 		string.upper(item.name:sub(1, 2)),
-		32,
+		22,
 		THEME.Gold,
-		UDim2.new(0, 0, 0, 5),
-		UDim2.new(1, 0, 0, 38)
+		UDim2.fromOffset(6, 6),
+		UDim2.fromOffset(32, 32)
 	)
 	placeholder.TextXAlignment = Enum.TextXAlignment.Center
 	placeholder.Visible = not item.asset
@@ -624,23 +645,24 @@ local function createItemCard(item, order, parent)
 		card,
 		"ItemName",
 		item.name,
-		17,
+		16,
 		THEME.GoldLight,
-		UDim2.new(0, 3, 0, 46),
-		UDim2.new(1, -6, 0, 28)
+		UDim2.fromOffset(44, 12),
+		UDim2.new(1, -50, 1, -14)
 	)
-	itemName.TextXAlignment = Enum.TextXAlignment.Center
 	itemName.TextWrapped = true
+	itemName.TextTruncate = Enum.TextTruncate.AtEnd
+	itemName.TextYAlignment = Enum.TextYAlignment.Center
 	itemName.LineHeight = 0.85
 
 	local countLabel = createText(
 		card,
 		"Count",
-		item.count and item.count > 1 and ("x" .. tostring(item.count)) or "",
-		18,
+		"x" .. tostring(item.count or 0),
+		15,
 		THEME.Green,
-		UDim2.new(1, -34, 0, 2),
-		UDim2.fromOffset(30, 16)
+		UDim2.new(1, -46, 0, 2),
+		UDim2.fromOffset(42, 14)
 	)
 	countLabel.TextXAlignment = Enum.TextXAlignment.Right
 
@@ -683,7 +705,7 @@ local function applyItems(items)
 		card.ItemName.Text = item.name
 		applySprite(card.Icon, item.asset)
 		card.Placeholder.Visible = not item.asset
-		card.Count.Text = item.count and item.count > 1 and ("x" .. tostring(item.count)) or ""
+		card.Count.Text = "x" .. tostring(item.count or 0)
 	end
 
 	for name, card in pairs(itemCards) do
