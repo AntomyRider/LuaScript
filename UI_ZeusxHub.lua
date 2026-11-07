@@ -587,10 +587,10 @@ local function createItemGrid(section, name, height)
 
 	-- Horizontal cards, 3 per row.
 	local grid = Instance.new("UIGridLayout")
-	grid.CellSize = UDim2.fromOffset(80, 44)
+	grid.CellSize = UDim2.fromOffset(66, 44)
 	grid.CellPadding = UDim2.fromOffset(6, 6)
 	grid.FillDirection = Enum.FillDirection.Horizontal
-	grid.FillDirectionMaxCells = 6
+	grid.FillDirectionMaxCells = 7
 	grid.SortOrder = Enum.SortOrder.LayoutOrder
 	grid.Parent = scrolling
 
@@ -697,8 +697,8 @@ local function createItemCard(item, order, parent)
 		"x" .. tostring(item.count or 0),
 		15,
 		THEME.Green,
-		UDim2.new(1, -46, 0, 2),
-		UDim2.fromOffset(42, 14)
+		UDim2.new(1, -38, 0, 2),
+		UDim2.fromOffset(34, 14)
 	)
 	countLabel.TextXAlignment = Enum.TextXAlignment.Right
 
