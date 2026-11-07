@@ -87,6 +87,22 @@ end
 -- Optional aliases for labels that may differ in ItemConfig.
 ITEM_NAME_LOOKUP[normalizeItemName("Valkyrie Helmet")] = "Valkyrie Helm"
 
+-- Melee styles counted in the melee box.
+local MELEE_LIST = {
+	"Superhuman",
+	"Death Step",
+	"Sharkman Karate",
+	"Electric Claw",
+	"Dragon Talon",
+	"Godhuman",
+}
+
+local MELEE_LOOKUP = {}
+
+for _, meleeName in ipairs(MELEE_LIST) do
+	MELEE_LOOKUP[normalizeItemName(meleeName)] = meleeName
+end
+
 local INVENTORY_INTERVAL = 2
 local AWAKEN_INTERVAL = 5
 local AWAKEN_REMOTE = "getAwakenedAbilities"
@@ -413,7 +429,7 @@ local playerNameLabel = createText(
 local statsRow = Instance.new("Frame")
 statsRow.Name = "Stats"
 statsRow.Position = UDim2.fromOffset(106, 34)
-statsRow.Size = UDim2.new(1, -118, 0, 64)
+statsRow.Size = UDim2.new(1, -300, 0, 64)
 statsRow.BackgroundColor3 = THEME.Card
 statsRow.BorderSizePixel = 0
 statsRow.Parent = playerSection
@@ -449,6 +465,39 @@ end
 local levelLabel = createStatLine("Level", THEME.Text, 1)
 local beliLabel = createStatLine("Beli", THEME.Green, 2)
 local fragmentLabel = createStatLine("Fragment", THEME.Purple, 3)
+
+-- Melee counter box beside the stats.
+local meleeBox = Instance.new("Frame")
+meleeBox.Name = "MeleeBox"
+meleeBox.Position = UDim2.new(1, -188, 0, 34)
+meleeBox.Size = UDim2.fromOffset(176, 64)
+meleeBox.BackgroundColor3 = THEME.Card
+meleeBox.BorderSizePixel = 0
+meleeBox.Parent = playerSection
+
+addCorner(meleeBox, 8)
+
+local meleeTitle = createText(
+	meleeBox,
+	"Title",
+	"Melee",
+	18,
+	THEME.Muted,
+	UDim2.fromOffset(0, 4),
+	UDim2.new(1, 0, 0, 20)
+)
+meleeTitle.TextXAlignment = Enum.TextXAlignment.Center
+
+local meleeCount = createText(
+	meleeBox,
+	"Count",
+	"0 / " .. #MELEE_LIST,
+	28,
+	THEME.GoldLight,
+	UDim2.fromOffset(0, 24),
+	UDim2.new(1, 0, 0, 34)
+)
+meleeCount.TextXAlignment = Enum.TextXAlignment.Center
 
 -- Load player thumbnail for the profile and the minimized button.
 local playerThumbnail = ""
@@ -659,6 +708,7 @@ end
 -- Pending data from the inventory thread.
 local pendingItems = nil
 local pendingFruit = nil
+local pendingMelee = nil
 
 -- Apply inventory items to the two separate categories.
 local function applyItems(items)
@@ -710,10 +760,11 @@ end
 local function getInventory(itemService, itemConfig, keys)
 	local inventory = {}
 	local assets = {}
+	local melees = {}
 	local items = itemService:GetItems(keys.QUANTITY)
 
 	if not items then
-		return inventory, assets
+		return inventory, assets, melees
 	end
 
 	for _, item in pairs(items) do
@@ -729,7 +780,13 @@ local function getInventory(itemService, itemConfig, keys)
 			continue
 		end
 
-		local canonicalName = ITEM_NAME_LOOKUP[normalizeItemName(config.Index.DebugLabel)]
+		local normalized = normalizeItemName(config.Index.DebugLabel)
+		local canonicalName = ITEM_NAME_LOOKUP[normalized]
+		local meleeName = MELEE_LOOKUP[normalized]
+
+		if meleeName then
+			melees[meleeName] = true
+		end
 
 		if canonicalName then
 			inventory[canonicalName] = (inventory[canonicalName] or 0) + item.Value
@@ -737,8 +794,9 @@ local function getInventory(itemService, itemConfig, keys)
 		end
 	end
 
-	return inventory, assets
+	return inventory, assets, melees
 end
+
 
 -- Build items list from the catalog.
 local function buildItems(inventory, assets)
@@ -852,7 +910,7 @@ ZeusxHub.itemsThread = task.spawn(function()
 
 	while true do
 		if itemService.IsInitialized then
-			local success, inventory, assets = pcall(
+			local success, inventory, assets, melees = pcall(
 				getInventory,
 				itemService,
 				itemConfig,
@@ -861,6 +919,14 @@ ZeusxHub.itemsThread = task.spawn(function()
 
 			if success then
 				pendingItems = buildItems(inventory, assets)
+
+				local owned = 0
+
+				for _ in pairs(melees) do
+					owned += 1
+				end
+
+				pendingMelee = owned
 			else
 				warn("[ZeusxHub] Inventory error: " .. tostring(inventory))
 			end
@@ -936,6 +1002,11 @@ local function onRenderStep()
 	levelLabel.Text = "Level : " .. formatNumber(getStat("Level"))
 	beliLabel.Text = "Beli : " .. formatNumber(getStat("Beli"))
 	fragmentLabel.Text = "Fragment : " .. formatNumber(getStat("Fragments"))
+
+	if pendingMelee then
+		meleeCount.Text = string.format("%d / %d", pendingMelee, #MELEE_LIST)
+		meleeCount.TextColor3 = pendingMelee >= #MELEE_LIST and THEME.Green or THEME.GoldLight
+	end
 
 	if pendingFruit ~= nil then
 		local info = pendingFruit
