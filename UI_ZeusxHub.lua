@@ -951,7 +951,6 @@ local function onRenderStep()
 	end
 
 	taskLabel.Text = tostring(ZeusxHub.task or "Idle")
-	timeLabel.Time = nil
 	timeLabel.Text = formatTime(os.clock() - startTime)
 end
 
