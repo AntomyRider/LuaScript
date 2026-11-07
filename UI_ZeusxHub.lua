@@ -352,7 +352,8 @@ screenGui.Parent = gethui and gethui() or game:GetService("CoreGui")
 local background = Instance.new("Frame")
 background.Name = "Background"
 background.Size = UDim2.fromScale(1, 1)
-background.BackgroundTransparency = 1
+background.BackgroundColor3 = Color3.new(0, 0, 0)
+background.BackgroundTransparency = 0.5
 background.BorderSizePixel = 0
 background.Parent = screenGui
 
@@ -537,10 +538,10 @@ local function createItemGrid(section, name, height)
 
 	-- Horizontal cards, 3 per row.
 	local grid = Instance.new("UIGridLayout")
-	grid.CellSize = UDim2.fromOffset(166, 44)
+	grid.CellSize = UDim2.fromOffset(80, 44)
 	grid.CellPadding = UDim2.fromOffset(6, 6)
 	grid.FillDirection = Enum.FillDirection.Horizontal
-	grid.FillDirectionMaxCells = 3
+	grid.FillDirectionMaxCells = 6
 	grid.SortOrder = Enum.SortOrder.LayoutOrder
 	grid.Parent = scrolling
 
@@ -641,20 +642,6 @@ local function createItemCard(item, order, parent)
 	placeholder.TextXAlignment = Enum.TextXAlignment.Center
 	placeholder.Visible = not item.asset
 
-	local itemName = createText(
-		card,
-		"ItemName",
-		item.name,
-		16,
-		THEME.GoldLight,
-		UDim2.fromOffset(44, 12),
-		UDim2.new(1, -50, 1, -14)
-	)
-	itemName.TextWrapped = true
-	itemName.TextTruncate = Enum.TextTruncate.AtEnd
-	itemName.TextYAlignment = Enum.TextYAlignment.Center
-	itemName.LineHeight = 0.85
-
 	local countLabel = createText(
 		card,
 		"Count",
@@ -702,7 +689,6 @@ local function applyItems(items)
 
 		seen[item.name] = true
 		card.LayoutOrder = order
-		card.ItemName.Text = item.name
 		applySprite(card.Icon, item.asset)
 		card.Placeholder.Visible = not item.asset
 		card.Count.Text = "x" .. tostring(item.count or 0)
