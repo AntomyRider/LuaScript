@@ -410,7 +410,7 @@ addStroke(profileImage, THEME.Gold, 2, 0)
 createText(
 	playerSection,
 	"PlayerName",
-	localPlayer.DisplayName .. ",
+	localPlayer.DisplayName,
 	22,
 	THEME.GoldLight,
 	UDim2.fromOffset(108, 6),
@@ -551,7 +551,7 @@ end
 -- Create one fixed slot.
 local function createSlot(itemName, order)
 	local card = Instance.new("Frame")
-	card.Name = "Slot_" .. itemName:gsub("%W", "")
+	card.Name = "Slot_" .. (itemName:gsub("%W", ""))
 	card.LayoutOrder = order
 	card.BackgroundColor3 = THEME.Card
 	card.BorderSizePixel = 0
