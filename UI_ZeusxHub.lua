@@ -38,11 +38,11 @@ local ITEM_ASSETS = {
 local FEATURED_ITEMS = {
 	"Saber",
 	"Godhuman",
+	"Yama",
+	"Tushita",
 	"Cursed Dual Katana",
 	"Valkyrie Helmet",
 	"Mirror Fractal",
-	"Tushita",
-	"Yama",
 }
 
 -- Normalize inventory labels.
