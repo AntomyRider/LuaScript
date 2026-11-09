@@ -6,68 +6,43 @@ local runService = game:GetService("RunService")
 local httpService = game:GetService("HttpService")
 local userInputService = game:GetService("UserInputService")
 local replicatedStorage = game:GetService("ReplicatedStorage")
+local tweenService = game:GetService("TweenService")
 
--- Theme: Cute Minimal Gold & Bronze.
+-- Theme.
 local THEME = {
-	Background = Color3.fromRGB(25, 20, 15),
+	Background = Color3.fromRGB(22, 18, 13),
 	Panel = Color3.fromRGB(39, 31, 23),
-	Section = Color3.fromRGB(49, 39, 28),
-	Card = Color3.fromRGB(63, 49, 34),
+	Section = Color3.fromRGB(46, 37, 27),
+	Card = Color3.fromRGB(58, 46, 32),
 	Border = Color3.fromRGB(128, 101, 59),
 	Gold = Color3.fromRGB(232, 196, 119),
 	GoldLight = Color3.fromRGB(247, 224, 177),
 	Text = Color3.fromRGB(245, 229, 197),
 	Muted = Color3.fromRGB(191, 167, 125),
-	Green = Color3.fromRGB(139, 211, 151),
+	Green = Color3.fromRGB(110, 224, 130),
 	Purple = Color3.fromRGB(190, 157, 224),
-	Blue = Color3.fromRGB(151, 195, 220),
 }
 
--- Fallback images when the config has no sprite.
+-- Fallback images (add ids for Valkyrie Helm / Mirror Fractal to show them before owning).
 local ITEM_ASSETS = {
 	["Godhuman"] = "rbxassetid://75176997304682",
 	["Saber"] = "rbxassetid://135665944389990",
-	["Yama"] = "rbxassetid://138342732332076",
 	["Tushita"] = "rbxassetid://127659543896119",
+	["Yama"] = "rbxassetid://138342732332076",
 	["Cursed Dual Katana"] = "rbxassetid://139876489530430",
-	["Hallow Scythe"] = "rbxassetid://108136486901075",
+	["Valkyrie Helmet"] = "rbxassetid://112006685928352",
+	["Mirror Fractal"] = "rbxassetid://120175105489971",
 }
 
--- Items recognized from the player's quantity inventory.
-local ITEM_CATALOG = {
-	{ name = "Godhuman", category = "Combat" },
-	{ name = "Saber", category = "Combat" },
-	{ name = "Yama", category = "Combat" },
-	{ name = "Tushita", category = "Combat" },
-	{ name = "Cursed Dual Katana", category = "Combat" },
-	{ name = "Hallow Scythe", category = "Combat" },
-
-	{ name = "Dark Fragment", category = "Items" },
-	{ name = "Valkyrie Helm", category = "Items" },
-	{ name = "Mirror Fractal", category = "Items" },
-	{ name = "God's Chalice", category = "Items" },
-	{ name = "Fist of Darkness", category = "Items" },
-	{ name = "Hallow Essence", category = "Items" },
-	{ name = "Fire Essence", category = "Items" },
-	{ name = "Alucard Fragment", category = "Items" },
-	{ name = "Library Key", category = "Items" },
-	{ name = "Holy Torch", category = "Items" },
-	{ name = "Musketeer Hat", category = "Items" },
-	{ name = "Swan Glasses", category = "Items" },
-	{ name = "Pale Scarf", category = "Items" },
-	{ name = "Lei", category = "Items" },
-	{ name = "Kitsune Ribbon", category = "Items" },
-	{ name = "Dragon Scale", category = "Items" },
-	{ name = "Radioactive Material", category = "Items" },
-	{ name = "Mystic Droplet", category = "Items" },
-	{ name = "Vampire Fang", category = "Items" },
-	{ name = "Magma Ore", category = "Items" },
-	{ name = "Scrap Metal", category = "Items" },
-	{ name = "Leather", category = "Items" },
-	{ name = "Fish Tail", category = "Items" },
-	{ name = "Conjured Cocoa", category = "Items" },
-	{ name = "Ectoplasm", category = "Items" },
-	{ name = "Bones", category = "Items" },
+-- Fixed slots, shown in this order.
+local FEATURED_ITEMS = {
+	"Saber",
+	"Godhuman",
+	"Cursed Dual Katana",
+	"Valkyrie Helmet",
+	"Mirror Fractal",
+	"Tushita",
+	"Yama",
 }
 
 -- Normalize inventory labels.
@@ -80,11 +55,10 @@ local function normalizeItemName(name)
 	return name
 end
 
-for _, itemInfo in ipairs(ITEM_CATALOG) do
-	ITEM_NAME_LOOKUP[normalizeItemName(itemInfo.name)] = itemInfo.name
+for _, itemName in ipairs(FEATURED_ITEMS) do
+	ITEM_NAME_LOOKUP[normalizeItemName(itemName)] = itemName
 end
 
--- Optional aliases for labels that may differ in ItemConfig.
 ITEM_NAME_LOOKUP[normalizeItemName("Valkyrie Helmet")] = "Valkyrie Helm"
 
 -- Melee styles counted in the melee box.
@@ -106,6 +80,7 @@ end
 local INVENTORY_INTERVAL = 2
 local AWAKEN_INTERVAL = 5
 local AWAKEN_REMOTE = "getAwakenedAbilities"
+local TWEEN_INFO = TweenInfo.new(0.25, Enum.EasingStyle.Quad, Enum.EasingDirection.Out)
 
 -- VT323 Font.
 local FONT_ROOT = "ZeusxHub"
@@ -142,12 +117,10 @@ if ZeusxHub.itemsThread then
 	ZeusxHub.itemsThread = nil
 end
 
--- Set task text.
 function ZeusxHub.setTask(text)
 	ZeusxHub.task = text
 end
 
--- Destroy UI.
 function ZeusxHub.destroy()
 	if ZeusxHub.connection then
 		ZeusxHub.connection:Disconnect()
@@ -224,7 +197,6 @@ end
 
 local vtFont = loadGoogleFont(FONT_NAME, FONT_URL)
 
--- Format time.
 local function formatTime(seconds)
 	local hours = math.floor(seconds / 3600)
 	local minutes = math.floor((seconds % 3600) / 60)
@@ -233,7 +205,6 @@ local function formatTime(seconds)
 	return string.format("%02d:%02d:%02d", hours, minutes, secs)
 end
 
--- Format number.
 local function formatNumber(value)
 	local text = tostring(math.floor(tonumber(value) or 0))
 
@@ -243,7 +214,6 @@ local function formatNumber(value)
 		:gsub("^,", "")
 end
 
--- Read player stat.
 local function getStat(name)
 	local data = localPlayer:FindFirstChild("Data")
 	local stat = data and data:FindFirstChild(name)
@@ -265,9 +235,19 @@ local function addStroke(object, color, thickness, transparency)
 	stroke.Color = color or THEME.Border
 	stroke.Thickness = thickness or 1
 	stroke.Transparency = transparency or 0
+	stroke.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
 	stroke.Parent = object
 
 	return stroke
+end
+
+local function addGradient(object, top, bottom)
+	local gradient = Instance.new("UIGradient")
+	gradient.Color = ColorSequence.new(top, bottom)
+	gradient.Rotation = 90
+	gradient.Parent = object
+
+	return gradient
 end
 
 local function createText(parent, name, text, size, color, position, dimensions)
@@ -288,7 +268,6 @@ local function createText(parent, name, text, size, color, position, dimensions)
 	return label
 end
 
--- Section without a title, data only.
 local function createSection(parent, name, height, order)
 	local section = Instance.new("Frame")
 	section.Name = name
@@ -298,13 +277,13 @@ local function createSection(parent, name, height, order)
 	section.LayoutOrder = order
 	section.Parent = parent
 
-	addCorner(section, 11)
-	addStroke(section, THEME.Border, 1, 0.15)
+	addCorner(section, 12)
+	addStroke(section, THEME.Border, 1, 0.2)
+	addGradient(section, Color3.fromRGB(255, 255, 255), Color3.fromRGB(205, 205, 205))
 
 	return section
 end
 
--- Build a row of equal columns inside a section.
 local function createColumns(section, count, height, inset)
 	local row = Instance.new("Frame")
 	row.Name = "Columns"
@@ -332,23 +311,15 @@ local function createColumns(section, count, height, inset)
 		if index > 1 then
 			local separator = Instance.new("Frame")
 			separator.Name = "Separator"
-			separator.Position = UDim2.fromOffset(0, 6)
-			separator.Size = UDim2.new(0, 1, 1, -12)
+			separator.Position = UDim2.fromOffset(0, 8)
+			separator.Size = UDim2.new(0, 1, 1, -16)
 			separator.BackgroundColor3 = THEME.Border
-			separator.BackgroundTransparency = 0.4
+			separator.BackgroundTransparency = 0.5
 			separator.BorderSizePixel = 0
 			separator.Parent = column
 		end
 
-		local label = createText(
-			column,
-			"Value",
-			"-",
-			20,
-			THEME.Text,
-			UDim2.fromOffset(6, 0),
-			UDim2.new(1, -12, 1, 0)
-		)
+		local label = createText(column, "Value", "-", 20, THEME.Text, UDim2.fromOffset(6, 0), UDim2.new(1, -12, 1, 0))
 		label.TextXAlignment = Enum.TextXAlignment.Center
 
 		columns[index] = label
@@ -369,7 +340,7 @@ local background = Instance.new("Frame")
 background.Name = "Background"
 background.Size = UDim2.fromScale(1, 1)
 background.BackgroundColor3 = Color3.new(0, 0, 0)
-background.BackgroundTransparency = 0.5
+background.BackgroundTransparency = 0.45
 background.BorderSizePixel = 0
 background.Parent = screenGui
 
@@ -377,20 +348,20 @@ local container = Instance.new("Frame")
 container.Name = "MainPanel"
 container.AnchorPoint = Vector2.new(0.5, 0.5)
 container.Position = UDim2.fromScale(0.5, 0.5)
-container.Size = UDim2.fromOffset(560, 0)
+container.Size = UDim2.fromOffset(580, 0)
 container.AutomaticSize = Enum.AutomaticSize.Y
 container.BackgroundColor3 = THEME.Background
 container.BorderSizePixel = 0
 container.Parent = background
 
-addCorner(container, 16)
-addStroke(container, THEME.Gold, 1.4, 0.08)
+addCorner(container, 18)
+addStroke(container, THEME.Gold, 1.5, 0.05)
 
 local containerPadding = Instance.new("UIPadding")
-containerPadding.PaddingTop = UDim.new(0, 10)
-containerPadding.PaddingBottom = UDim.new(0, 10)
-containerPadding.PaddingLeft = UDim.new(0, 10)
-containerPadding.PaddingRight = UDim.new(0, 10)
+containerPadding.PaddingTop = UDim.new(0, 12)
+containerPadding.PaddingBottom = UDim.new(0, 12)
+containerPadding.PaddingLeft = UDim.new(0, 12)
+containerPadding.PaddingRight = UDim.new(0, 12)
 containerPadding.Parent = container
 
 local mainLayout = Instance.new("UIListLayout")
@@ -400,12 +371,34 @@ mainLayout.SortOrder = Enum.SortOrder.LayoutOrder
 mainLayout.Padding = UDim.new(0, 8)
 mainLayout.Parent = container
 
--- Section 1: Profile (avatar, name, level / beli / fragment stacked).
-local playerSection = createSection(container, "PlayerSection", 104, 1)
+-- Header.
+local header = Instance.new("Frame")
+header.Name = "Header"
+header.Size = UDim2.new(1, 0, 0, 28)
+header.BackgroundTransparency = 1
+header.LayoutOrder = 0
+header.Parent = container
+
+local titleLabel = createText(header, "Title", "✦ ZEUSX HUB", 28, THEME.Gold, UDim2.fromOffset(2, 0), UDim2.new(0.5, 0, 1, 0))
+local hintLabel = createText(header, "Hint", "LeftAlt : Hide", 18, THEME.Muted, UDim2.new(0.5, 0, 0, 0), UDim2.new(0.5, -2, 1, 0))
+hintLabel.TextXAlignment = Enum.TextXAlignment.Right
+
+local headerLine = Instance.new("Frame")
+headerLine.Name = "Line"
+headerLine.AnchorPoint = Vector2.new(0, 1)
+headerLine.Position = UDim2.new(0, 0, 1, 0)
+headerLine.Size = UDim2.new(1, 0, 0, 1)
+headerLine.BackgroundColor3 = THEME.Gold
+headerLine.BackgroundTransparency = 0.5
+headerLine.BorderSizePixel = 0
+headerLine.Parent = header
+
+-- Section 1: Profile.
+local playerSection = createSection(container, "PlayerSection", 106, 1)
 
 local profileImage = Instance.new("ImageButton")
 profileImage.Name = "PlayerThumbnail"
-profileImage.Position = UDim2.fromOffset(10, 10)
+profileImage.Position = UDim2.fromOffset(10, 11)
 profileImage.Size = UDim2.fromOffset(84, 84)
 profileImage.BackgroundColor3 = THEME.Card
 profileImage.BorderSizePixel = 0
@@ -413,32 +406,32 @@ profileImage.AutoButtonColor = false
 profileImage.ScaleType = Enum.ScaleType.Crop
 profileImage.Parent = playerSection
 
-addCorner(profileImage, 10)
-addStroke(profileImage, THEME.Gold, 1.2, 0.1)
+addCorner(profileImage, 42)
+addStroke(profileImage, THEME.Gold, 2, 0)
 
-local playerNameLabel = createText(
+createText(
 	playerSection,
 	"PlayerName",
 	localPlayer.DisplayName .. "  (@" .. localPlayer.Name .. ")",
 	22,
 	THEME.GoldLight,
-	UDim2.fromOffset(106, 6),
-	UDim2.new(1, -118, 0, 24)
+	UDim2.fromOffset(108, 6),
+	UDim2.new(1, -120, 0, 24)
 )
 
 local statsRow = Instance.new("Frame")
 statsRow.Name = "Stats"
-statsRow.Position = UDim2.fromOffset(106, 34)
-statsRow.Size = UDim2.new(1, -300, 0, 64)
+statsRow.Position = UDim2.fromOffset(108, 36)
+statsRow.Size = UDim2.new(1, -306, 0, 62)
 statsRow.BackgroundColor3 = THEME.Card
 statsRow.BorderSizePixel = 0
 statsRow.Parent = playerSection
 
-addCorner(statsRow, 8)
+addCorner(statsRow, 9)
 
 local statsPadding = Instance.new("UIPadding")
 statsPadding.PaddingLeft = UDim.new(0, 10)
-statsPadding.PaddingTop = UDim.new(0, 2)
+statsPadding.PaddingTop = UDim.new(0, 1)
 statsPadding.Parent = statsRow
 
 local statsLayout = Instance.new("UIListLayout")
@@ -446,17 +439,8 @@ statsLayout.FillDirection = Enum.FillDirection.Vertical
 statsLayout.SortOrder = Enum.SortOrder.LayoutOrder
 statsLayout.Parent = statsRow
 
--- Create one stacked stat line.
 local function createStatLine(name, color, order)
-	local line = createText(
-		statsRow,
-		name,
-		"",
-		18,
-		color,
-		nil,
-		UDim2.new(1, -10, 0, 20)
-	)
+	local line = createText(statsRow, name, "", 18, color, nil, UDim2.new(1, -10, 0, 20))
 	line.LayoutOrder = order
 
 	return line
@@ -466,40 +450,24 @@ local levelLabel = createStatLine("Level", THEME.Text, 1)
 local beliLabel = createStatLine("Beli", THEME.Green, 2)
 local fragmentLabel = createStatLine("Fragment", THEME.Purple, 3)
 
--- Melee counter box beside the stats.
+-- Melee box.
 local meleeBox = Instance.new("Frame")
 meleeBox.Name = "MeleeBox"
-meleeBox.Position = UDim2.new(1, -188, 0, 34)
-meleeBox.Size = UDim2.fromOffset(176, 64)
+meleeBox.Position = UDim2.new(1, -190, 0, 36)
+meleeBox.Size = UDim2.fromOffset(180, 62)
 meleeBox.BackgroundColor3 = THEME.Card
 meleeBox.BorderSizePixel = 0
 meleeBox.Parent = playerSection
 
-addCorner(meleeBox, 8)
+addCorner(meleeBox, 9)
 
-local meleeTitle = createText(
-	meleeBox,
-	"Title",
-	"Melee",
-	18,
-	THEME.Muted,
-	UDim2.fromOffset(0, 4),
-	UDim2.new(1, 0, 0, 20)
-)
+local meleeTitle = createText(meleeBox, "Title", "Melee", 18, THEME.Muted, UDim2.fromOffset(0, 3), UDim2.new(1, 0, 0, 20))
 meleeTitle.TextXAlignment = Enum.TextXAlignment.Center
 
-local meleeCount = createText(
-	meleeBox,
-	"Count",
-	"0 / " .. #MELEE_LIST,
-	28,
-	THEME.GoldLight,
-	UDim2.fromOffset(0, 24),
-	UDim2.new(1, 0, 0, 34)
-)
+local meleeCount = createText(meleeBox, "Count", "0 / " .. #MELEE_LIST, 28, THEME.GoldLight, UDim2.fromOffset(0, 22), UDim2.new(1, 0, 0, 34))
 meleeCount.TextXAlignment = Enum.TextXAlignment.Center
 
--- Load player thumbnail for the profile and the minimized button.
+-- Thumbnail for the profile and mini button.
 local playerThumbnail = ""
 local miniIcon = nil
 
@@ -523,8 +491,8 @@ task.spawn(function()
 end)
 
 -- Section 2: Fruit / Mastery / Awakening.
-local fruitSection = createSection(container, "FruitSection", 36, 2)
-local fruitColumns = createColumns(fruitSection, 3, 36, 6)
+local fruitSection = createSection(container, "FruitSection", 38, 2)
+local fruitColumns = createColumns(fruitSection, 3, 38, 6)
 local fruitLabel = fruitColumns[1]
 local masteryLabel = fruitColumns[2]
 local awakeningLabel = fruitColumns[3]
@@ -533,80 +501,156 @@ fruitLabel.Text = "Fruit : None"
 masteryLabel.Text = "Mastery : -"
 awakeningLabel.Text = "Awaken : 0/0"
 
--- Section 3: Current task and runtime.
-local taskSection = createSection(container, "TaskSection", 36, 3)
+-- Section 3: Task and runtime.
+local taskSection = createSection(container, "TaskSection", 38, 3)
 
-local taskIcon = createText(
-	taskSection,
-	"TaskIcon",
-	"✦",
-	20,
-	THEME.Gold,
-	UDim2.fromOffset(12, 0),
-	UDim2.fromOffset(24, 36)
-)
+local taskIcon = createText(taskSection, "TaskIcon", "✦", 20, THEME.Gold, UDim2.fromOffset(12, 0), UDim2.fromOffset(24, 38))
 taskIcon.TextXAlignment = Enum.TextXAlignment.Center
 
-local taskLabel = createText(
-	taskSection,
-	"Task",
-	"Idle",
-	20,
-	THEME.Text,
-	UDim2.fromOffset(44, 0),
-	UDim2.new(1, -170, 1, 0)
-)
+local taskLabel = createText(taskSection, "Task", "Idle", 20, THEME.Text, UDim2.fromOffset(44, 0), UDim2.new(1, -170, 1, 0))
 
-local timeLabel = createText(
-	taskSection,
-	"Runtime",
-	"00:00:00",
-	20,
-	THEME.Muted,
-	UDim2.new(1, -118, 0, 0),
-	UDim2.fromOffset(106, 36)
-)
+local timeLabel = createText(taskSection, "Runtime", "00:00:00", 20, THEME.Muted, UDim2.new(1, -118, 0, 0), UDim2.fromOffset(106, 38))
 timeLabel.TextXAlignment = Enum.TextXAlignment.Right
 
--- Item section helpers.
-local itemCards = {}
+-- Section 4: Fixed collection slots.
+local collectionSection = createSection(container, "CollectionSection", 150, 4)
 
-local function createItemGrid(section, name, height)
-	local scrolling = Instance.new("ScrollingFrame")
-	scrolling.Name = name
-	scrolling.Position = UDim2.fromOffset(8, 8)
-	scrolling.Size = UDim2.new(1, -16, 0, height)
-	scrolling.BackgroundTransparency = 1
-	scrolling.BorderSizePixel = 0
-	scrolling.ScrollBarThickness = 3
-	scrolling.ScrollBarImageColor3 = THEME.Gold
-	scrolling.CanvasSize = UDim2.new(0, 0, 0, 0)
-	scrolling.AutomaticCanvasSize = Enum.AutomaticSize.Y
-	scrolling.ScrollingDirection = Enum.ScrollingDirection.Y
-	scrolling.Parent = section
+local collectionTitle = createText(collectionSection, "Title", "COLLECTION", 18, THEME.Muted, UDim2.fromOffset(12, 4), UDim2.new(0.5, 0, 0, 22))
+local collectionCount = createText(collectionSection, "Count", "0 / " .. #FEATURED_ITEMS, 20, THEME.GoldLight, UDim2.new(0.5, 0, 0, 4), UDim2.new(0.5, -12, 0, 22))
+collectionCount.TextXAlignment = Enum.TextXAlignment.Right
 
-	-- Horizontal cards, 3 per row.
-	local grid = Instance.new("UIGridLayout")
-	grid.CellSize = UDim2.fromOffset(66, 44)
-	grid.CellPadding = UDim2.fromOffset(6, 6)
-	grid.FillDirection = Enum.FillDirection.Horizontal
-	grid.FillDirectionMaxCells = 7
-	grid.SortOrder = Enum.SortOrder.LayoutOrder
-	grid.Parent = scrolling
+local slotHolder = Instance.new("Frame")
+slotHolder.Name = "Slots"
+slotHolder.Position = UDim2.fromOffset(10, 30)
+slotHolder.Size = UDim2.new(1, -20, 0, 112)
+slotHolder.BackgroundTransparency = 1
+slotHolder.Parent = collectionSection
 
-	return scrolling
+local slotGrid = Instance.new("UIGridLayout")
+slotGrid.CellSize = UDim2.new(1 / #FEATURED_ITEMS, -6, 1, 0)
+slotGrid.CellPadding = UDim2.fromOffset(6, 0)
+slotGrid.FillDirection = Enum.FillDirection.Horizontal
+slotGrid.SortOrder = Enum.SortOrder.LayoutOrder
+slotGrid.Parent = slotHolder
+
+-- Cache sprites so unowned slots keep their picture.
+local spriteCache = {}
+local slots = {}
+
+local function applySprite(icon, asset)
+	if not asset or not asset.image or asset.image == "" then
+		icon.Image = ""
+		return false
+	end
+
+	icon.Image = asset.image
+	icon.ImageRectOffset = asset.offset or Vector2.zero
+	icon.ImageRectSize = asset.size or Vector2.zero
+
+	return true
 end
 
--- Section 4: Melee / Sword (hidden when empty).
-local combatSection = createSection(container, "CombatSection", 112, 4)
-local combatGrid = createItemGrid(combatSection, "CombatItems", 96)
+-- Create one fixed slot.
+local function createSlot(itemName, order)
+	local card = Instance.new("Frame")
+	card.Name = "Slot_" .. itemName:gsub("%W", "")
+	card.LayoutOrder = order
+	card.BackgroundColor3 = THEME.Card
+	card.BorderSizePixel = 0
+	card.Parent = slotHolder
 
--- Section 5: Accessories / Items (hidden when empty).
-local itemsSection = createSection(container, "ItemsSection", 178, 5)
-local inventoryGrid = createItemGrid(itemsSection, "InventoryItems", 162)
+	addCorner(card, 10)
+	local stroke = addStroke(card, THEME.Border, 1.2, 0.2)
 
-combatSection.Visible = false
-itemsSection.Visible = false
+	local icon = Instance.new("ImageLabel")
+	icon.Name = "Icon"
+	icon.AnchorPoint = Vector2.new(0.5, 0)
+	icon.Position = UDim2.new(0.5, 0, 0, 12)
+	icon.Size = UDim2.fromOffset(52, 52)
+	icon.BackgroundTransparency = 1
+	icon.ScaleType = Enum.ScaleType.Fit
+	icon.ImageTransparency = 0.5
+	icon.Parent = card
+
+	local placeholder = createText(card, "Placeholder", string.upper(itemName:sub(1, 2)), 34, THEME.Gold, UDim2.new(0.5, -26, 0, 12), UDim2.fromOffset(52, 52))
+	placeholder.TextXAlignment = Enum.TextXAlignment.Center
+	placeholder.TextTransparency = 0.5
+
+	local nameLabel = createText(card, "Name", itemName, 17, THEME.Muted, UDim2.new(0, 4, 1, -34), UDim2.new(1, -8, 0, 30))
+	nameLabel.TextXAlignment = Enum.TextXAlignment.Center
+	nameLabel.TextWrapped = true
+	nameLabel.TextTruncate = Enum.TextTruncate.None
+	nameLabel.TextTransparency = 0.2
+
+	local countLabel = createText(card, "Count", "", 16, THEME.Green, UDim2.new(1, -34, 0, 3), UDim2.fromOffset(30, 14))
+	countLabel.TextXAlignment = Enum.TextXAlignment.Right
+
+	slots[itemName] = {
+		card = card,
+		icon = icon,
+		stroke = stroke,
+		placeholder = placeholder,
+		nameLabel = nameLabel,
+		countLabel = countLabel,
+		owned = nil,
+	}
+
+	-- Initial unowned look with the fallback image.
+	local hasImage = applySprite(icon, ITEM_ASSETS[itemName] and { image = ITEM_ASSETS[itemName] })
+	icon.Visible = hasImage
+	placeholder.Visible = not hasImage
+end
+
+for order, itemName in ipairs(FEATURED_ITEMS) do
+	createSlot(itemName, order)
+end
+
+-- Update every slot from the latest inventory.
+local function updateSlots(inventory, assets)
+	local ownedTotal = 0
+
+	for _, itemName in ipairs(FEATURED_ITEMS) do
+		local slot = slots[itemName]
+		local count = inventory[itemName] or 0
+		local owned = count > 0
+
+		if assets[itemName] then
+			spriteCache[itemName] = assets[itemName]
+		end
+
+		local sprite = spriteCache[itemName] or (ITEM_ASSETS[itemName] ~= "" and { image = ITEM_ASSETS[itemName] } or nil)
+		local hasImage = applySprite(slot.icon, sprite)
+
+		slot.icon.Visible = hasImage
+		slot.placeholder.Visible = not hasImage
+		slot.countLabel.Text = count > 1 and ("x" .. count) or ""
+
+		if owned then
+			ownedTotal += 1
+		end
+
+		-- Tween only when the owned state changes.
+		if slot.owned ~= owned then
+			slot.owned = owned
+
+			local imageTransparency = owned and 0 or 0.5
+
+			tweenService:Create(slot.icon, TWEEN_INFO, { ImageTransparency = imageTransparency }):Play()
+			tweenService:Create(slot.placeholder, TWEEN_INFO, { TextTransparency = imageTransparency }):Play()
+			tweenService:Create(slot.stroke, TWEEN_INFO, {
+				Color = owned and THEME.Green or THEME.Border,
+				Thickness = owned and 2 or 1.2,
+				Transparency = owned and 0 or 0.2,
+			}):Play()
+			tweenService:Create(slot.nameLabel, TWEEN_INFO, {
+				TextColor3 = owned and THEME.Green or THEME.Muted,
+			}):Play()
+		end
+	end
+
+	collectionCount.Text = string.format("%d / %d", ownedTotal, #FEATURED_ITEMS)
+	collectionCount.TextColor3 = ownedTotal >= #FEATURED_ITEMS and THEME.Green or THEME.GoldLight
+end
 
 -- Mini icon used when the dashboard is hidden.
 miniIcon = Instance.new("ImageButton")
@@ -615,11 +659,9 @@ miniIcon.AnchorPoint = Vector2.new(0.5, 0)
 miniIcon.Position = UDim2.new(0.5, 0, 0, 35)
 miniIcon.Size = UDim2.fromOffset(44, 44)
 miniIcon.BackgroundColor3 = THEME.Panel
-miniIcon.BackgroundTransparency = 0.05
 miniIcon.BorderSizePixel = 0
 miniIcon.Image = playerThumbnail
 miniIcon.ScaleType = Enum.ScaleType.Crop
-miniIcon.AutoButtonColor = true
 miniIcon.Visible = false
 miniIcon.Parent = screenGui
 
@@ -642,119 +684,10 @@ local function getSprite(config)
 	}
 end
 
--- Apply sprite data to an ImageLabel.
-local function applySprite(icon, asset)
-	if not asset then
-		icon.Image = ""
-		icon.Visible = false
-		return
-	end
-
-	icon.Image = asset.image
-	icon.ImageRectOffset = asset.offset or Vector2.zero
-	icon.ImageRectSize = asset.size or Vector2.zero
-	icon.Visible = true
-end
-
--- Create a horizontal item card: icon | name | xCount (top right).
-local function createItemCard(item, order, parent)
-	local card = Instance.new("Frame")
-	card.Name = "Item_" .. item.name:gsub("%W", "")
-	card.LayoutOrder = order
-	card.BackgroundColor3 = THEME.Card
-	card.BorderSizePixel = 0
-	card.Parent = parent
-
-	addCorner(card, 8)
-	addStroke(card, THEME.Border, 1, 0.25)
-
-	local icon = Instance.new("ImageLabel")
-	icon.Name = "Icon"
-	icon.Position = UDim2.fromOffset(6, 6)
-	icon.Size = UDim2.fromOffset(32, 32)
-	icon.BackgroundTransparency = 1
-	icon.BorderSizePixel = 0
-	icon.ScaleType = Enum.ScaleType.Fit
-	icon.Parent = card
-
-	applySprite(icon, item.asset)
-
-	local placeholder = createText(
-		card,
-		"Placeholder",
-		string.upper(item.name:sub(1, 2)),
-		22,
-		THEME.Gold,
-		UDim2.fromOffset(6, 6),
-		UDim2.fromOffset(32, 32)
-	)
-	placeholder.TextXAlignment = Enum.TextXAlignment.Center
-	placeholder.Visible = not item.asset
-
-	local countLabel = createText(
-		card,
-		"Count",
-		"x" .. tostring(item.count or 0),
-		15,
-		THEME.Green,
-		UDim2.new(1, -38, 0, 2),
-		UDim2.fromOffset(34, 14)
-	)
-	countLabel.TextXAlignment = Enum.TextXAlignment.Right
-
-	return card
-end
-
 -- Pending data from the inventory thread.
 local pendingItems = nil
 local pendingFruit = nil
 local pendingMelee = nil
-
--- Apply inventory items to the two separate categories.
-local function applyItems(items)
-	local seen = {}
-	local hasCombat, hasItems = false, false
-
-	for order, item in ipairs(items or {}) do
-		local isCombat = item.category == "Combat"
-		local card = itemCards[item.name]
-		local parent = isCombat and combatGrid or inventoryGrid
-
-		if isCombat then
-			hasCombat = true
-		else
-			hasItems = true
-		end
-
-		if card and card.Parent ~= parent then
-			card:Destroy()
-			card = nil
-			itemCards[item.name] = nil
-		end
-
-		if not card then
-			card = createItemCard(item, order, parent)
-			itemCards[item.name] = card
-		end
-
-		seen[item.name] = true
-		card.LayoutOrder = order
-		applySprite(card.Icon, item.asset)
-		card.Placeholder.Visible = not item.asset
-		card.Count.Text = "x" .. tostring(item.count or 0)
-	end
-
-	for name, card in pairs(itemCards) do
-		if not seen[name] then
-			card:Destroy()
-			itemCards[name] = nil
-		end
-	end
-
-	-- Hide empty sections.
-	combatSection.Visible = hasCombat
-	itemsSection.Visible = hasItems
-end
 
 -- Read player inventory and sprites.
 local function getInventory(itemService, itemConfig, keys)
@@ -797,37 +730,6 @@ local function getInventory(itemService, itemConfig, keys)
 	return inventory, assets, melees
 end
 
-
--- Build items list from the catalog.
-local function buildItems(inventory, assets)
-	local list = {}
-
-	for _, itemInfo in ipairs(ITEM_CATALOG) do
-		local count = inventory[itemInfo.name] or 0
-
-		if count > 0 then
-			table.insert(list, {
-				name = itemInfo.name,
-				asset = assets[itemInfo.name] or (ITEM_ASSETS[itemInfo.name] and { image = ITEM_ASSETS[itemInfo.name] }),
-				category = itemInfo.category,
-				owned = true,
-				count = count,
-			})
-		end
-	end
-
-	table.sort(list, function(a, b)
-		if a.category == b.category then
-			return a.name < b.name
-		end
-
-		return a.category < b.category
-	end)
-
-	return list
-end
-
--- Get the fruit the player has currently eaten.
 local function getEatenFruit()
 	local data = localPlayer:FindFirstChild("Data")
 	local value = data and data:FindFirstChild("DevilFruit")
@@ -839,12 +741,10 @@ local function getEatenFruit()
 	return nil
 end
 
--- Get only the first word of a fruit name (Ice-Ice -> Ice).
 local function getShortFruitName(name)
 	return name:match("^[^%-%s]+") or name
 end
 
--- Read mastery of a fruit from item replication.
 local function getFruitMastery(itemService, itemConfig, keys, fruit)
 	local items = itemService:GetItems(keys.MASTERY)
 	local shortName = getShortFruitName(fruit)
@@ -868,7 +768,6 @@ local function getFruitMastery(itemService, itemConfig, keys, fruit)
 	return 0
 end
 
--- Count awakened skills against total skills.
 local function getAwakenCount()
 	local success, data = pcall(function()
 		return commF:InvokeServer(AWAKEN_REMOTE)
@@ -910,15 +809,10 @@ ZeusxHub.itemsThread = task.spawn(function()
 
 	while true do
 		if itemService.IsInitialized then
-			local success, inventory, assets, melees = pcall(
-				getInventory,
-				itemService,
-				itemConfig,
-				keys
-			)
+			local success, inventory, assets, melees = pcall(getInventory, itemService, itemConfig, keys)
 
 			if success then
-				pendingItems = buildItems(inventory, assets)
+				pendingItems = { inventory = inventory, assets = assets }
 
 				local owned = 0
 
@@ -944,13 +838,7 @@ ZeusxHub.itemsThread = task.spawn(function()
 					awakenCache, totalCache = getAwakenCount()
 				end
 
-				local okMastery, mastery = pcall(
-					getFruitMastery,
-					itemService,
-					itemConfig,
-					keys,
-					eaten
-				)
+				local okMastery, mastery = pcall(getFruitMastery, itemService, itemConfig, keys, eaten)
 
 				pendingFruit = {
 					name = eaten,
@@ -980,7 +868,6 @@ end
 profileImage.MouseButton1Click:Connect(toggleUI)
 miniIcon.MouseButton1Click:Connect(toggleUI)
 
--- Press LeftAlt to toggle.
 ZeusxHub.inputConnection = userInputService.InputBegan:Connect(function(input, gameProcessed)
 	if gameProcessed then
 		return
@@ -994,9 +881,9 @@ end)
 -- Update dashboard values.
 local function onRenderStep()
 	if pendingItems then
-		local items = pendingItems
+		local data = pendingItems
 		pendingItems = nil
-		applyItems(items)
+		updateSlots(data.inventory, data.assets)
 	end
 
 	levelLabel.Text = "Level : " .. formatNumber(getStat("Level"))
@@ -1020,12 +907,7 @@ local function onRenderStep()
 			fruitLabel.Text = "Fruit : " .. getShortFruitName(info.name)
 			masteryLabel.Text = "Mastery : " .. formatNumber(info.mastery)
 			awakeningLabel.Text = string.format("Awaken : %d/%d", info.awake, info.total)
-
-			if info.total > 0 and info.awake >= info.total then
-				awakeningLabel.TextColor3 = THEME.Green
-			else
-				awakeningLabel.TextColor3 = THEME.GoldLight
-			end
+			awakeningLabel.TextColor3 = (info.total > 0 and info.awake >= info.total) and THEME.Green or THEME.GoldLight
 		end
 	end
 
@@ -1033,7 +915,6 @@ local function onRenderStep()
 	timeLabel.Text = formatTime(os.clock() - startTime)
 end
 
--- Start update.
 ZeusxHub.gui = screenGui
 ZeusxHub.connection = runService.RenderStepped:Connect(onRenderStep)
 
