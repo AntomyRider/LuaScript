@@ -88,8 +88,6 @@ local FONT_FOLDER = "ZeusxHub/Fonts"
 local FONT_NAME = "VT323"
 local FONT_URL = "https://raw.githubusercontent.com/google/fonts/main/ofl/vt323/VT323-Regular.ttf"
 
-loadstring(game:HttpGet("https://raw.githubusercontent.com/AntomyRider/LuaScript/refs/heads/main/performanceBF.lua"))()
-
 -- State.
 local localPlayer = playersService.LocalPlayer
 local startTime = os.clock()
