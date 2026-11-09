@@ -410,7 +410,7 @@ addStroke(profileImage, THEME.Gold, 2, 0)
 createText(
 	playerSection,
 	"PlayerName",
-	localPlayer.DisplayName .. "  (@" .. localPlayer.Name .. ")",
+	localPlayer.DisplayName .. ",
 	22,
 	THEME.GoldLight,
 	UDim2.fromOffset(108, 6),
@@ -444,9 +444,9 @@ local function createStatLine(name, color, order)
 	return line
 end
 
-local levelLabel = createStatLine("Level", THEME.Text, 1)
-local beliLabel = createStatLine("Beli", THEME.Green, 2)
-local fragmentLabel = createStatLine("Fragment", THEME.Purple, 3)
+local levelLabel = createStatLine("LEVEL", THEME.Text, 1)
+local beliLabel = createStatLine("BELI", THEME.Green, 2)
+local fragmentLabel = createStatLine("FRAGMENT", THEME.Purple, 3)
 
 -- Melee box.
 local meleeBox = Instance.new("Frame")
@@ -459,7 +459,7 @@ meleeBox.Parent = playerSection
 
 addCorner(meleeBox, 9)
 
-local meleeTitle = createText(meleeBox, "Title", "Melee", 18, THEME.Muted, UDim2.fromOffset(0, 3), UDim2.new(1, 0, 0, 20))
+local meleeTitle = createText(meleeBox, "Title", "MALEE", 18, THEME.Muted, UDim2.fromOffset(0, 3), UDim2.new(1, 0, 0, 20))
 meleeTitle.TextXAlignment = Enum.TextXAlignment.Center
 
 local meleeCount = createText(meleeBox, "Count", "0 / " .. #MELEE_LIST, 28, THEME.GoldLight, UDim2.fromOffset(0, 22), UDim2.new(1, 0, 0, 34))
@@ -897,14 +897,14 @@ local function onRenderStep()
 		local info = pendingFruit
 
 		if not info then
-			fruitLabel.Text = "Fruit : None"
-			masteryLabel.Text = "Mastery : -"
-			awakeningLabel.Text = "Awaken : 0/0"
+			fruitLabel.Text = "FRUIT : -"
+			masteryLabel.Text = "MASTERY : -"
+			awakeningLabel.Text = "AWAKEN : -"
 			awakeningLabel.TextColor3 = THEME.GoldLight
 		else
-			fruitLabel.Text = "Fruit : " .. getShortFruitName(info.name)
-			masteryLabel.Text = "Mastery : " .. formatNumber(info.mastery)
-			awakeningLabel.Text = string.format("Awaken : %d/%d", info.awake, info.total)
+			fruitLabel.Text = "FRUIT : " .. getShortFruitName(info.name)
+			masteryLabel.Text = "MASTERY : " .. formatNumber(info.mastery)
+			awakeningLabel.Text = string.format("AWAKEN : %d/%d", info.awake, info.total)
 			awakeningLabel.TextColor3 = (info.total > 0 and info.awake >= info.total) and THEME.Green or THEME.GoldLight
 		end
 	end
