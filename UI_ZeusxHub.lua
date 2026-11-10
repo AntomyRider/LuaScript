@@ -325,7 +325,7 @@ local main = create("Frame", {
     BorderSizePixel = 0,
     AnchorPoint = Vector2.new(0.5, 0.5),
     Position = UDim2.fromScale(0.5, 0.5),
-    Size = UDim2.fromOffset(460, 0),
+    Size = UDim2.fromOffset(540, 0),
     AutomaticSize = Enum.AutomaticSize.Y,
 })
 create("UICorner", { Parent = main, CornerRadius = UDim.new(0, 6) })
@@ -379,9 +379,26 @@ end
 
 -- Right column.
 -- Task Card (วางก่อนหน้า Melee)
-local taskCard = createCard(rightColumn, "Task")
-local taskValue = createRow(taskCard, "Status")
-taskValue.Text = currentTask
+local taskCard = createCard(rightColumn, "Status")
+local taskRow = create("Frame", {
+	Parent = taskCard,
+	BackgroundTransparency = 1,
+	Size = UDim2.new(1, 0, 0, ROW_HEIGHT),
+	LayoutOrder = #taskCard:GetChildren(),
+})
+
+local taskValue = create("TextLabel", {
+	Parent = taskRow,
+	BackgroundTransparency = 1,
+	Size = UDim2.new(1, 0, 1, 0),
+	Font = FONT,
+	TextSize = FONT_SIZE,
+	TextColor3 = COLORS.text,
+	TextXAlignment = Enum.TextXAlignment.Left,
+	TextTruncate = Enum.TextTruncate.AtEnd,
+	TextWrapped = false,
+	Text = currentTask,
+})
 
 -- Melee Card (วางก่อนหน้า Sword พร้อม have/total)
 local meleeCard, meleeCounter = createCard(rightColumn, "Melee", true)
