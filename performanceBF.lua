@@ -220,11 +220,6 @@ local function clayifyPart(part, color)
 	setProperty(part, "Color", color)
 	setProperty(part, "Reflectance", 0)
 	setProperty(part, "CastShadow", false)
-
-	if part:IsA("MeshPart") then
-		pcall(setProperty, part, "TextureID", "")
-		pcall(setProperty, part, "RenderFidelity", Enum.RenderFidelity.Performance)
-	end
 end
 
 ---Hide or clayify an instance depending on the current mode.
