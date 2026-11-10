@@ -33,6 +33,7 @@ local TOGGLE_KEYS = {
 local LEFT_ITEMS = {
     { label = "Valkyries Helm", match = "Valkyrie Helmet", kind = "check" },
     { label = "Mirror Fractal", match = "Mirror Fractal", kind = "check" },
+    { label = "Bone", match = "Bones", kind = "total" },
     { label = "Dark Fragment", match = "Dark Fragment", kind = "total" },
 }
 
