@@ -461,6 +461,8 @@ function MobOnlyView.init()
 	end
 end
 
+MobOnlyView.setHideObjects(false)
+
 ---This is called when initialization errors.
 ---@param error string
 local function onInitializeError(error)
