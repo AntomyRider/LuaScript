@@ -398,12 +398,11 @@ end
 ---Set task status from external scripts.
 ---@param task string?
 function ZeusxHub.setTask(task)
-    if task and tostring(task) ~= "" then
-        currentTask = tostring(task)
-    else
-        currentTask = "Idle"
-    end
-    taskValue.Text = currentTask
+	if task and tostring(task) ~= "" then
+		currentTask = tostring(task)
+	else
+		currentTask = "Idle"
+	end
 end
 
 ---Set config value.
@@ -486,6 +485,7 @@ end)
 
 ---Update every value shown in the UI.
 local function onRenderStep()
+    taskValue.Text = currentTask
     timeValue.Text = formatTime(os.clock() - startTime)
     levelValue.Text = formatNumber(getData("Level"))
     beliValue.Text = formatNumber(getData("Beli"))
