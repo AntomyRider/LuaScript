@@ -6,7 +6,9 @@ local userInputService = game:GetService("UserInputService")
 
 -- Constants.
 local FONT = Enum.Font.Code
-local FONT_SIZE = 11
+local FONT_SIZE = 14
+local ROW_HEIGHT = 18
+local TITLE_HEIGHT = 18
 local INVENTORY_INTERVAL = 2
 local COLORS = {
 	background = Color3.fromRGB(16, 16, 18),
@@ -14,8 +16,8 @@ local COLORS = {
 	stroke = Color3.fromRGB(44, 44, 50),
 	title = Color3.fromRGB(130, 130, 145),
 	text = Color3.fromRGB(225, 225, 230),
-	good = Color3.fromRGB(90, 200, 120),
-	bad = Color3.fromRGB(215, 80, 80),
+	good = Color3.fromRGB(80, 255, 120),
+	bad = Color3.fromRGB(255, 70, 70),
 }
 
 -- Display label -> inventory label.
@@ -122,11 +124,11 @@ local function createColumn(parent, position)
 		Parent = parent,
 		BackgroundTransparency = 1,
 		Position = position,
-		Size = UDim2.new(0.5, -3, 0, 0),
+		Size = UDim2.new(0.5, -4, 0, 0),
 		AutomaticSize = Enum.AutomaticSize.Y,
 	})
 
-	create("UIListLayout", { Parent = column, Padding = UDim.new(0, 6), SortOrder = Enum.SortOrder.LayoutOrder })
+	create("UIListLayout", { Parent = column, Padding = UDim.new(0, 8), SortOrder = Enum.SortOrder.LayoutOrder })
 	return column
 end
 
@@ -147,17 +149,17 @@ local function createCard(parent, title)
 	create("UIStroke", { Parent = card, Color = COLORS.stroke, Thickness = 1 })
 	create("UIPadding", {
 		Parent = card,
-		PaddingTop = UDim.new(0, 6),
-		PaddingBottom = UDim.new(0, 6),
-		PaddingLeft = UDim.new(0, 8),
-		PaddingRight = UDim.new(0, 8),
+		PaddingTop = UDim.new(0, 8),
+		PaddingBottom = UDim.new(0, 8),
+		PaddingLeft = UDim.new(0, 10),
+		PaddingRight = UDim.new(0, 10),
 	})
-	create("UIListLayout", { Parent = card, Padding = UDim.new(0, 3), SortOrder = Enum.SortOrder.LayoutOrder })
+	create("UIListLayout", { Parent = card, Padding = UDim.new(0, 4), SortOrder = Enum.SortOrder.LayoutOrder })
 
 	local header = create("Frame", {
 		Parent = card,
 		BackgroundTransparency = 1,
-		Size = UDim2.new(1, 0, 0, 14),
+		Size = UDim2.new(1, 0, 0, TITLE_HEIGHT),
 		LayoutOrder = 0,
 	})
 	createLabel(header, string.upper(title), COLORS.title, Enum.TextXAlignment.Left)
@@ -173,7 +175,7 @@ local function createRow(card, label)
 	local row = create("Frame", {
 		Parent = card,
 		BackgroundTransparency = 1,
-		Size = UDim2.new(1, 0, 0, 13),
+		Size = UDim2.new(1, 0, 0, ROW_HEIGHT),
 		LayoutOrder = #card:GetChildren(),
 	})
 
@@ -181,12 +183,13 @@ local function createRow(card, label)
 	return createLabel(row, "-", COLORS.text, Enum.TextXAlignment.Right)
 end
 
----Show a check or cross on a label.
+---Show a green check or red cross on a label.
 ---@param label TextLabel
 ---@param owned boolean
 local function setCheck(label, owned)
 	label.Text = owned and "✓" or "✗"
 	label.TextColor3 = owned and COLORS.good or COLORS.bad
+	label.Font = Enum.Font.GothamBold
 end
 
 -- Build GUI.
@@ -201,8 +204,9 @@ local main = create("Frame", {
 	Parent = screenGui,
 	BackgroundColor3 = COLORS.background,
 	BorderSizePixel = 0,
-	Position = UDim2.fromOffset(20, 120),
-	Size = UDim2.fromOffset(320, 0),
+	AnchorPoint = Vector2.new(0.5, 0.5),
+	Position = UDim2.fromScale(0.5, 0.5),
+	Size = UDim2.fromOffset(460, 0),
 	AutomaticSize = Enum.AutomaticSize.Y,
 	Active = true,
 })
@@ -210,10 +214,10 @@ create("UICorner", { Parent = main, CornerRadius = UDim.new(0, 6) })
 create("UIStroke", { Parent = main, Color = COLORS.stroke, Thickness = 1 })
 create("UIPadding", {
 	Parent = main,
-	PaddingTop = UDim.new(0, 6),
-	PaddingBottom = UDim.new(0, 6),
-	PaddingLeft = UDim.new(0, 6),
-	PaddingRight = UDim.new(0, 6),
+	PaddingTop = UDim.new(0, 8),
+	PaddingBottom = UDim.new(0, 8),
+	PaddingLeft = UDim.new(0, 8),
+	PaddingRight = UDim.new(0, 8),
 })
 
 local body = create("Frame", {
@@ -224,7 +228,7 @@ local body = create("Frame", {
 })
 
 local leftColumn = createColumn(body, UDim2.new(0, 0, 0, 0))
-local rightColumn = createColumn(body, UDim2.new(0.5, 3, 0, 0))
+local rightColumn = createColumn(body, UDim2.new(0.5, 4, 0, 0))
 
 -- Left column.
 local timeValue = createRow(createCard(leftColumn, "Time Running"), "Total")
@@ -268,7 +272,10 @@ local changedConnection = userInputService.InputChanged:Connect(function(input)
 	end
 
 	local delta = input.Position - dragStart
-	main.Position = UDim2.fromOffset(startPosition.X.Offset + delta.X, startPosition.Y.Offset + delta.Y)
+	main.Position = UDim2.new(
+		startPosition.X.Scale, startPosition.X.Offset + delta.X,
+		startPosition.Y.Scale, startPosition.Y.Offset + delta.Y
+	)
 end)
 
 local endedConnection = userInputService.InputEnded:Connect(function(input)
