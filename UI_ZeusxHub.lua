@@ -307,7 +307,7 @@ end
 ---@param owned boolean
 local function setCheck(label, owned)
     label.Font = Enum.Font.Code
-    label.Text = owned and "✓" or "X"
+    label.Text = owned and "✅" or "❌"
     label.TextColor3 = owned and COLORS.good or COLORS.bad
 end
 
