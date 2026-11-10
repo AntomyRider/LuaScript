@@ -10,6 +10,8 @@ loadstring("getfenv().LPH_NO_VIRTUALIZE = function(...) return ... end")()
 local MobOnlyView = {
 	connections = {},
 	running = false,
+	hideObjects = true,
+	pass = 0,
 	cache = {},
 	ground = {},
 	notifications = nil,
@@ -20,6 +22,8 @@ local MobOnlyView = {
 local BATCH_SIZE = 750
 local GROUND_INTERVAL = 0.5
 local GROUND_RAY_LENGTH = 50
+local HIDE_OBJECTS = true
+local LOW_QUALITY = true
 local KEEP_GROUND_VISIBLE = false
 local HIDE_OTHER_PLAYERS = false
 local REMOVE_NOTIFICATIONS = true
@@ -38,6 +42,11 @@ local DISABLED_CLASSES = {
 	PointLight = true,
 	SpotLight = true,
 	SurfaceLight = true,
+	BloomEffect = true,
+	BlurEffect = true,
+	ColorCorrectionEffect = true,
+	DepthOfFieldEffect = true,
+	SunRaysEffect = true,
 }
 
 -- Clothing classes mapped to the property that holds their texture.
@@ -55,9 +64,18 @@ local WATER_PROPERTIES = {
 	WaterWaveSpeed = 0,
 }
 
+-- Lighting properties lowered for the low quality mode.
+local LOW_LIGHTING_PROPERTIES = {
+	GlobalShadows = false,
+	ShadowSoftness = 0,
+	EnvironmentDiffuseScale = 0,
+	EnvironmentSpecularScale = 0,
+}
+
 -- Services.
 local playersService = game:GetService("Players")
 local workspaceService = game:GetService("Workspace")
+local lightingService = game:GetService("Lighting")
 
 -- State.
 local localPlayer = playersService.LocalPlayer
@@ -147,6 +165,20 @@ local function removeWaterEffects()
 	end
 end
 
+---Lower every global graphics setting.
+local function applyLowSettings()
+	pcall(setProperty, settings().Rendering, "QualityLevel", Enum.QualityLevel.Level01)
+
+	for property, value in pairs(LOW_LIGHTING_PROPERTIES) do
+		pcall(setProperty, lightingService, property, value)
+	end
+
+	local terrain = workspaceService:FindFirstChildOfClass("Terrain")
+	if terrain then
+		pcall(setProperty, terrain, "Decoration", false)
+	end
+end
+
 ---Remove the Notifications gui, remembering its parent for restoring.
 local function removeNotifications()
 	local playerGui = localPlayer:FindFirstChildOfClass("PlayerGui")
@@ -175,37 +207,46 @@ local function restoreNotifications()
 	MobOnlyView.notificationsParent = nil
 end
 
----Turn a part of a living entity into flat clay.
+---Turn a part into flat clay.
 ---@param part BasePart
----@param model Model
-local function clayifyPart(part, model)
+---@param color Color3
+local function clayifyPart(part, color)
 	-- Leave invisible helper parts alone.
 	if part.Transparency >= 1 then
 		return
 	end
 
 	setProperty(part, "Material", Enum.Material.SmoothPlastic)
-	setProperty(part, "Color", getClayColor(model))
+	setProperty(part, "Color", color)
 	setProperty(part, "Reflectance", 0)
 	setProperty(part, "CastShadow", false)
 
 	if part:IsA("MeshPart") then
 		pcall(setProperty, part, "TextureID", "")
+		pcall(setProperty, part, "RenderFidelity", Enum.RenderFidelity.Performance)
 	end
 end
 
----Hide everything that is not a mob or NPC, keeping collision intact.
+---Hide or clayify an instance depending on the current mode.
 ---@param instance Instance
 local function processInstance(instance)
 	if instance:IsA("Terrain") then
 		return
 	end
 
+	local hideObjects = MobOnlyView.hideObjects
 	local className = instance.ClassName
 	local model = getLivingModel(instance)
 
+	if className == "Atmosphere" then
+		pcall(setProperty, instance, "Density", 0)
+		pcall(setProperty, instance, "Haze", 0)
+		return
+	end
+
+	-- Effects are always off in low quality, otherwise only outside mobs.
 	if DISABLED_CLASSES[className] then
-		if not model then
+		if LOW_QUALITY or not model then
 			setProperty(instance, "Enabled", false)
 		end
 		return
@@ -213,7 +254,13 @@ local function processInstance(instance)
 
 	if instance:IsA("BasePart") then
 		if model then
-			clayifyPart(instance, model)
+			clayifyPart(instance, getClayColor(model))
+			return
+		end
+
+		-- Clay mode keeps every object visible as clay.
+		if not hideObjects then
+			clayifyPart(instance, instance.Color)
 			return
 		end
 
@@ -226,13 +273,13 @@ local function processInstance(instance)
 		return
 	end
 
-	-- Strip textures from living entities, hide them on everything else.
+	-- Strip textures from everything in clay mode, only mobs otherwise.
 	if instance:IsA("Decal") or instance:IsA("Texture") then
 		setProperty(instance, "Transparency", 1)
 		return
 	end
 
-	if not model then
+	if hideObjects and not model then
 		return
 	end
 
@@ -290,10 +337,11 @@ local function restoreAll()
 	table.clear(MobOnlyView.ground)
 end
 
----Process the whole game in batches.
-local function processExisting()
+---Process the whole game in batches, stopping if a newer pass started.
+---@param pass number
+local function processExisting(pass)
 	for index, instance in ipairs(game:GetDescendants()) do
-		if not MobOnlyView.running then
+		if not MobOnlyView.running or MobOnlyView.pass ~= pass then
 			return
 		end
 
@@ -305,9 +353,39 @@ local function processExisting()
 	end
 end
 
+---Reset everything and apply the current mode from scratch.
+local function applyAll()
+	MobOnlyView.pass = MobOnlyView.pass + 1
+	local pass = MobOnlyView.pass
+
+	restoreAll()
+
+	if LOW_QUALITY then
+		pcall(applyLowSettings)
+	end
+
+	if REMOVE_WATER_EFFECTS then
+		pcall(removeWaterEffects)
+	end
+
+	if MobOnlyView.hideObjects and KEEP_GROUND_VISIBLE then
+		pcall(updateGround)
+	end
+
+	task.spawn(processExisting, pass)
+end
+
+---Switch between hiding objects and showing them as clay.
+---@param state boolean
+function MobOnlyView.setHideObjects(state)
+	MobOnlyView.hideObjects = state
+	applyAll()
+end
+
 ---Stop and restore everything.
 function MobOnlyView.detach()
 	MobOnlyView.running = false
+	MobOnlyView.pass = MobOnlyView.pass + 1
 
 	for _, connection in ipairs(MobOnlyView.connections) do
 		pcall(function()
@@ -323,23 +401,14 @@ end
 ---Start the script.
 function MobOnlyView.init()
 	MobOnlyView.running = true
+	MobOnlyView.hideObjects = HIDE_OBJECTS
 
 	-- Remove the notifications gui first.
 	if REMOVE_NOTIFICATIONS then
 		pcall(removeNotifications)
 	end
 
-	-- Remove the water effects of the terrain.
-	if REMOVE_WATER_EFFECTS then
-		pcall(removeWaterEffects)
-	end
-
-	-- Keep ground visible before hiding the rest.
-	if KEEP_GROUND_VISIBLE then
-		pcall(updateGround)
-	end
-
-	task.spawn(processExisting)
+	applyAll()
 
 	-- Handle anything that spawns later.
 	table.insert(
@@ -382,7 +451,10 @@ function MobOnlyView.init()
 	if KEEP_GROUND_VISIBLE then
 		task.spawn(function()
 			while MobOnlyView.running do
-				pcall(updateGround)
+				if MobOnlyView.hideObjects then
+					pcall(updateGround)
+				end
+
 				task.wait(GROUND_INTERVAL)
 			end
 		end)
