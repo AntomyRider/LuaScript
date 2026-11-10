@@ -22,7 +22,7 @@ local MobOnlyView = {
 local BATCH_SIZE = 750
 local GROUND_INTERVAL = 0.5
 local GROUND_RAY_LENGTH = 50
-local HIDE_OBJECTS = true
+local hideObject = false -- true = ซ่อน Object ที่ไม่ใช่ Mob, false = แสดง Object เป็นดิน
 local LOW_QUALITY = true
 local KEEP_GROUND_VISIBLE = false
 local HIDE_OTHER_PLAYERS = false
@@ -401,7 +401,7 @@ end
 ---Start the script.
 function MobOnlyView.init()
 	MobOnlyView.running = true
-	MobOnlyView.hideObjects = HIDE_OBJECTS
+	MobOnlyView.hideObjects = hideObject
 
 	-- Remove the notifications gui first.
 	if REMOVE_NOTIFICATIONS then
@@ -461,7 +461,6 @@ function MobOnlyView.init()
 	end
 end
 
-MobOnlyView.setHideObjects(false)
 
 ---This is called when initialization errors.
 ---@param error string
