@@ -14,23 +14,22 @@ local MobOnlyView = {
 	pass = 0,
 	cache = {},
 	ground = {},
-	queue = {},
 	notifications = nil,
 	notificationsParent = nil,
 }
 
 -- Constants.
-local FRAME_BUDGET = 0.004
-local QUEUE_BUDGET = 0.003
+local BATCH_SIZE = 750
 local GROUND_INTERVAL = 0.5
 local GROUND_RAY_LENGTH = 50
-local hideObject = false -- true = ซ่อน Object ที่ไม่ใช่ Mob, false = แสดง Object เป็นสีขาว
+local hideObject = false -- true = ซ่อน Object ที่ไม่ใช่ Mob, false = แสดง Object เป็นดิน
 local LOW_QUALITY = true
 local KEEP_GROUND_VISIBLE = false
 local HIDE_OTHER_PLAYERS = false
 local REMOVE_NOTIFICATIONS = true
 local REMOVE_WATER_EFFECTS = true
-local WHITE = Color3.fromRGB(255, 255, 255)
+local LOCAL_CLAY_COLOR = Color3.fromRGB(120, 200, 255)
+local PLAYER_CLAY_COLOR = Color3.fromRGB(255, 170, 200)
 
 -- Classes that are simply switched off.
 local DISABLED_CLASSES = {
@@ -48,9 +47,6 @@ local DISABLED_CLASSES = {
 	ColorCorrectionEffect = true,
 	DepthOfFieldEffect = true,
 	SunRaysEffect = true,
-	Highlight = true,
-	SurfaceGui = true,
-	BillboardGui = true,
 }
 
 -- Clothing classes mapped to the property that holds their texture.
@@ -68,17 +64,12 @@ local WATER_PROPERTIES = {
 	WaterWaveSpeed = 0,
 }
 
--- Lighting properties lowered and whitened for the low quality mode.
-local LIGHTING_PROPERTIES = {
+-- Lighting properties lowered for the low quality mode.
+local LOW_LIGHTING_PROPERTIES = {
 	GlobalShadows = false,
 	ShadowSoftness = 0,
 	EnvironmentDiffuseScale = 0,
 	EnvironmentSpecularScale = 0,
-	Ambient = WHITE,
-	OutdoorAmbient = WHITE,
-	FogColor = WHITE,
-	FogEnd = 1000000,
-	FogStart = 1000000,
 }
 
 -- Services.
@@ -121,18 +112,34 @@ local function getLivingModel(instance)
 	return nil
 end
 
+---Pick the clay color for a living model.
+---@param model Model
+---@return Color3
+local function getClayColor(model)
+	local owner = playersService:GetPlayerFromCharacter(model)
+
+	if owner == localPlayer then
+		return LOCAL_CLAY_COLOR
+	end
+
+	if owner then
+		return PLAYER_CLAY_COLOR
+	end
+
+	-- Mobs get a stable pastel color from their name.
+	local hash = 0
+	for index = 1, #model.Name do
+		hash = (hash * 31 + model.Name:byte(index)) % 360
+	end
+
+	return Color3.fromHSV(hash / 360, 0.5, 1)
+end
+
 ---Write a property and remember its original value.
 ---@param instance Instance
 ---@param property string
 ---@param value any
 local function setProperty(instance, property, value)
-	local current = instance[property]
-
-	-- Skip redundant writes to save performance.
-	if current == value then
-		return
-	end
-
 	local entry = MobOnlyView.cache[instance]
 	if not entry then
 		entry = {}
@@ -140,7 +147,7 @@ local function setProperty(instance, property, value)
 	end
 
 	if entry[property] == nil then
-		entry[property] = current
+		entry[property] = instance[property]
 	end
 
 	instance[property] = value
@@ -158,11 +165,11 @@ local function removeWaterEffects()
 	end
 end
 
----Lower every global graphics setting and turn the world white.
+---Lower every global graphics setting.
 local function applyLowSettings()
 	pcall(setProperty, settings().Rendering, "QualityLevel", Enum.QualityLevel.Level01)
 
-	for property, value in pairs(LIGHTING_PROPERTIES) do
+	for property, value in pairs(LOW_LIGHTING_PROPERTIES) do
 		pcall(setProperty, lightingService, property, value)
 	end
 
@@ -200,27 +207,22 @@ local function restoreNotifications()
 	MobOnlyView.notificationsParent = nil
 end
 
----Turn a part into flat white.
+---Turn a part into flat clay.
 ---@param part BasePart
-local function whitenPart(part)
+---@param color Color3
+local function clayifyPart(part, color)
 	-- Leave invisible helper parts alone.
 	if part.Transparency >= 1 then
 		return
 	end
 
 	setProperty(part, "Material", Enum.Material.SmoothPlastic)
-	setProperty(part, "Color", WHITE)
+	setProperty(part, "Color", color)
 	setProperty(part, "Reflectance", 0)
 	setProperty(part, "CastShadow", false)
-
-	-- Cheapest mesh rendering and no mesh texture.
-	if part:IsA("MeshPart") then
-		pcall(setProperty, part, "RenderFidelity", Enum.RenderFidelity.Performance)
-		pcall(setProperty, part, "TextureID", "")
-	end
 end
 
----Hide or whiten an instance depending on the current mode.
+---Hide or clayify an instance depending on the current mode.
 ---@param instance Instance
 local function processInstance(instance)
 	if instance:IsA("Terrain") then
@@ -229,50 +231,36 @@ local function processInstance(instance)
 
 	local hideObjects = MobOnlyView.hideObjects
 	local className = instance.ClassName
+	local model = getLivingModel(instance)
 
 	if className == "Atmosphere" then
 		pcall(setProperty, instance, "Density", 0)
 		pcall(setProperty, instance, "Haze", 0)
-		pcall(setProperty, instance, "Color", WHITE)
-		return
-	end
-
-	if className == "Sky" then
-		pcall(setProperty, instance, "StarCount", 0)
-		pcall(setProperty, instance, "CelestialBodiesShown", false)
-		return
-	end
-
-	if className == "ForceField" then
-		pcall(setProperty, instance, "Visible", false)
 		return
 	end
 
 	-- Effects are always off in low quality, otherwise only outside mobs.
 	if DISABLED_CLASSES[className] then
-		if LOW_QUALITY or not getLivingModel(instance) then
-			pcall(setProperty, instance, "Enabled", false)
+		if LOW_QUALITY or not model then
+			setProperty(instance, "Enabled", false)
 		end
 		return
 	end
 
 	if instance:IsA("BasePart") then
-		local model = getLivingModel(instance)
-
 		if model then
-			whitenPart(instance)
+			clayifyPart(instance, getClayColor(model))
 			return
 		end
 
-		-- White mode keeps every object visible.
+		-- Clay mode keeps every object visible as clay.
 		if not hideObjects then
-			whitenPart(instance)
+			clayifyPart(instance, instance.Color)
 			return
 		end
 
 		-- Ground parts stay visible.
 		if MobOnlyView.ground[instance] then
-			whitenPart(instance)
 			return
 		end
 
@@ -280,13 +268,13 @@ local function processInstance(instance)
 		return
 	end
 
-	-- Strip textures from everything.
+	-- Strip textures from everything in clay mode, only mobs otherwise.
 	if instance:IsA("Decal") or instance:IsA("Texture") then
 		setProperty(instance, "Transparency", 1)
 		return
 	end
 
-	if hideObjects and not getLivingModel(instance) then
+	if hideObjects and not model then
 		return
 	end
 
@@ -327,7 +315,6 @@ local function updateGround()
 
 		MobOnlyView.ground[part] = true
 		pcall(setProperty, part, "LocalTransparencyModifier", 0)
-		pcall(whitenPart, part)
 	end
 end
 
@@ -343,38 +330,20 @@ local function restoreAll()
 
 	table.clear(MobOnlyView.cache)
 	table.clear(MobOnlyView.ground)
-	table.clear(MobOnlyView.queue)
 end
 
----Process the whole game within a time budget per frame.
+---Process the whole game in batches, stopping if a newer pass started.
 ---@param pass number
 local function processExisting(pass)
-	local frameStart = os.clock()
-
-	for _, instance in ipairs(game:GetDescendants()) do
+	for index, instance in ipairs(game:GetDescendants()) do
 		if not MobOnlyView.running or MobOnlyView.pass ~= pass then
 			return
 		end
 
 		pcall(processInstance, instance)
 
-		-- Yield by time instead of by count so frames never spike.
-		if os.clock() - frameStart >= FRAME_BUDGET then
+		if index % BATCH_SIZE == 0 then
 			task.wait()
-			frameStart = os.clock()
-		end
-	end
-end
-
----Drain newly added instances in small slices.
-local function drainQueue()
-	local queue = MobOnlyView.queue
-	local start = os.clock()
-
-	while #queue > 0 and os.clock() - start < QUEUE_BUDGET do
-		local instance = table.remove(queue)
-		if instance and instance.Parent then
-			pcall(processInstance, instance)
 		end
 	end
 end
@@ -401,7 +370,7 @@ local function applyAll()
 	task.spawn(processExisting, pass)
 end
 
----Switch between hiding objects and showing them as white.
+---Switch between hiding objects and showing them as clay.
 ---@param state boolean
 function MobOnlyView.setHideObjects(state)
 	MobOnlyView.hideObjects = state
@@ -436,16 +405,13 @@ function MobOnlyView.init()
 
 	applyAll()
 
-	-- Queue anything that spawns later instead of processing it instantly.
+	-- Handle anything that spawns later.
 	table.insert(
 		MobOnlyView.connections,
 		game.DescendantAdded:Connect(function(instance)
-			table.insert(MobOnlyView.queue, instance)
+			task.defer(pcall, processInstance, instance)
 		end)
 	)
-
-	-- Drain the queue once per frame within a small time budget.
-	table.insert(MobOnlyView.connections, game:GetService("RunService").Heartbeat:Connect(drainQueue))
 
 	-- Remove Notifications again if the game re-creates it (e.g. on respawn).
 	if REMOVE_NOTIFICATIONS then
@@ -476,20 +442,6 @@ function MobOnlyView.init()
 		end
 	end
 
-	-- Keep lighting white if the game changes it back.
-	if LOW_QUALITY then
-		for property, value in pairs(LIGHTING_PROPERTIES) do
-			table.insert(
-				MobOnlyView.connections,
-				lightingService:GetPropertyChangedSignal(property):Connect(function()
-					if lightingService[property] ~= value then
-						pcall(setProperty, lightingService, property, value)
-					end
-				end)
-			)
-		end
-	end
-
 	-- Refresh ground under moving mobs.
 	if KEEP_GROUND_VISIBLE then
 		task.spawn(function()
@@ -503,6 +455,7 @@ function MobOnlyView.init()
 		end)
 	end
 end
+
 
 ---This is called when initialization errors.
 ---@param error string
