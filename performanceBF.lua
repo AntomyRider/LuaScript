@@ -10,10 +10,11 @@ loadstring("getfenv().LPH_NO_VIRTUALIZE = function(...) return ... end")()
 local MobOnlyView = {
 	connections = {},
 	running = false,
+	hideObjects = true,
 	pass = 0,
 	cache = {},
+	ground = {},
 	queue = {},
-	terrainColors = {},
 	notifications = nil,
 	notificationsParent = nil,
 }
@@ -21,7 +22,12 @@ local MobOnlyView = {
 -- Constants.
 local FRAME_BUDGET = 0.004
 local QUEUE_BUDGET = 0.003
+local GROUND_INTERVAL = 0.5
+local GROUND_RAY_LENGTH = 50
+local hideObject = false -- true = ซ่อน Object ที่ไม่ใช่ Mob, false = แสดง Object เป็นสีขาว
 local LOW_QUALITY = true
+local KEEP_GROUND_VISIBLE = false
+local HIDE_OTHER_PLAYERS = false
 local REMOVE_NOTIFICATIONS = true
 local REMOVE_WATER_EFFECTS = true
 local WHITE = Color3.fromRGB(255, 255, 255)
@@ -54,16 +60,6 @@ local CLOTHING_CLASSES = {
 	ShirtGraphic = "Graphic",
 }
 
--- Body color properties of BodyColors.
-local BODY_COLOR_PROPERTIES = {
-	"HeadColor3",
-	"TorsoColor3",
-	"LeftArmColor3",
-	"RightArmColor3",
-	"LeftLegColor3",
-	"RightLegColor3",
-}
-
 -- Terrain water properties and the value that removes their effect.
 local WATER_PROPERTIES = {
 	WaterTransparency = 1,
@@ -72,7 +68,7 @@ local WATER_PROPERTIES = {
 	WaterWaveSpeed = 0,
 }
 
--- Lighting properties lowered and whitened.
+-- Lighting properties lowered and whitened for the low quality mode.
 local LIGHTING_PROPERTIES = {
 	GlobalShadows = false,
 	ShadowSoftness = 0,
@@ -89,10 +85,41 @@ local LIGHTING_PROPERTIES = {
 local playersService = game:GetService("Players")
 local workspaceService = game:GetService("Workspace")
 local lightingService = game:GetService("Lighting")
-local runService = game:GetService("RunService")
 
 -- State.
 local localPlayer = playersService.LocalPlayer
+
+---Check whether a model is a living entity (mob, NPC, player).
+---@param model Instance
+---@return boolean
+local function isLivingModel(model)
+	return model:FindFirstChildOfClass("Humanoid") ~= nil
+		or model:FindFirstChildOfClass("AnimationController") ~= nil
+end
+
+---Find the living model an instance belongs to.
+---@param instance Instance
+---@return Model?
+local function getLivingModel(instance)
+	local current = instance.Parent
+
+	while current and current ~= game do
+		if current:IsA("Model") and isLivingModel(current) then
+			local owner = playersService:GetPlayerFromCharacter(current)
+
+			-- Other players can be hidden when requested.
+			if HIDE_OTHER_PLAYERS and owner and owner ~= localPlayer then
+				return nil
+			end
+
+			return current
+		end
+
+		current = current.Parent
+	end
+
+	return nil
+end
 
 ---Write a property and remember its original value.
 ---@param instance Instance
@@ -119,54 +146,29 @@ local function setProperty(instance, property, value)
 	instance[property] = value
 end
 
----Paint every terrain material white and flatten the water.
-local function whitenTerrain()
+---Flatten the terrain water so it has no visual effect.
+local function removeWaterEffects()
 	local terrain = workspaceService:FindFirstChildOfClass("Terrain")
 	if not terrain then
-		return
-	end
-
-	for _, material in ipairs(Enum.Material:GetEnumItems()) do
-		pcall(function()
-			if not MobOnlyView.terrainColors[material] then
-				MobOnlyView.terrainColors[material] = terrain:GetMaterialColor(material)
-			end
-
-			terrain:SetMaterialColor(material, WHITE)
-		end)
-	end
-
-	if not REMOVE_WATER_EFFECTS then
 		return
 	end
 
 	for property, value in pairs(WATER_PROPERTIES) do
 		pcall(setProperty, terrain, property, value)
 	end
-
-	pcall(setProperty, terrain, "Decoration", false)
 end
 
----Restore the original terrain material colors.
-local function restoreTerrain()
-	local terrain = workspaceService:FindFirstChildOfClass("Terrain")
-	if not terrain then
-		return
-	end
-
-	for material, color in pairs(MobOnlyView.terrainColors) do
-		pcall(terrain.SetMaterialColor, terrain, material, color)
-	end
-
-	table.clear(MobOnlyView.terrainColors)
-end
-
----Lower every global graphics setting and turn the lighting white.
+---Lower every global graphics setting and turn the world white.
 local function applyLowSettings()
 	pcall(setProperty, settings().Rendering, "QualityLevel", Enum.QualityLevel.Level01)
 
 	for property, value in pairs(LIGHTING_PROPERTIES) do
 		pcall(setProperty, lightingService, property, value)
+	end
+
+	local terrain = workspaceService:FindFirstChildOfClass("Terrain")
+	if terrain then
+		pcall(setProperty, terrain, "Decoration", false)
 	end
 end
 
@@ -201,7 +203,7 @@ end
 ---Turn a part into flat white.
 ---@param part BasePart
 local function whitenPart(part)
-	-- Leave fully invisible helper parts alone.
+	-- Leave invisible helper parts alone.
 	if part.Transparency >= 1 then
 		return
 	end
@@ -211,11 +213,6 @@ local function whitenPart(part)
 	setProperty(part, "Reflectance", 0)
 	setProperty(part, "CastShadow", false)
 
-	-- Unions can keep their own colors, force the part color.
-	if part:IsA("UnionOperation") then
-		pcall(setProperty, part, "UsePartColor", true)
-	end
-
 	-- Cheapest mesh rendering and no mesh texture.
 	if part:IsA("MeshPart") then
 		pcall(setProperty, part, "RenderFidelity", Enum.RenderFidelity.Performance)
@@ -223,48 +220,114 @@ local function whitenPart(part)
 	end
 end
 
----Whiten one instance.
+---Hide or whiten an instance depending on the current mode.
 ---@param instance Instance
 local function processInstance(instance)
 	if instance:IsA("Terrain") then
 		return
 	end
 
+	local hideObjects = MobOnlyView.hideObjects
 	local className = instance.ClassName
-
-	if instance:IsA("BasePart") then
-		whitenPart(instance)
-		return
-	end
-
-	if DISABLED_CLASSES[className] then
-		pcall(setProperty, instance, "Enabled", false)
-		return
-	end
 
 	if className == "Atmosphere" then
 		pcall(setProperty, instance, "Density", 0)
 		pcall(setProperty, instance, "Haze", 0)
 		pcall(setProperty, instance, "Color", WHITE)
-		pcall(setProperty, instance, "Decay", WHITE)
-	elseif className == "Sky" then
+		return
+	end
+
+	if className == "Sky" then
 		pcall(setProperty, instance, "StarCount", 0)
 		pcall(setProperty, instance, "CelestialBodiesShown", false)
-	elseif className == "ForceField" then
+		return
+	end
+
+	if className == "ForceField" then
 		pcall(setProperty, instance, "Visible", false)
-	elseif className == "BodyColors" then
-		for _, property in ipairs(BODY_COLOR_PROPERTIES) do
-			pcall(setProperty, instance, property, WHITE)
+		return
+	end
+
+	-- Effects are always off in low quality, otherwise only outside mobs.
+	if DISABLED_CLASSES[className] then
+		if LOW_QUALITY or not getLivingModel(instance) then
+			pcall(setProperty, instance, "Enabled", false)
 		end
-	elseif instance:IsA("Decal") or instance:IsA("Texture") then
-		pcall(setProperty, instance, "Transparency", 1)
-	elseif CLOTHING_CLASSES[className] then
+		return
+	end
+
+	if instance:IsA("BasePart") then
+		local model = getLivingModel(instance)
+
+		if model then
+			whitenPart(instance)
+			return
+		end
+
+		-- White mode keeps every object visible.
+		if not hideObjects then
+			whitenPart(instance)
+			return
+		end
+
+		-- Ground parts stay visible.
+		if MobOnlyView.ground[instance] then
+			whitenPart(instance)
+			return
+		end
+
+		setProperty(instance, "LocalTransparencyModifier", 1)
+		return
+	end
+
+	-- Strip textures from everything.
+	if instance:IsA("Decal") or instance:IsA("Texture") then
+		setProperty(instance, "Transparency", 1)
+		return
+	end
+
+	if hideObjects and not getLivingModel(instance) then
+		return
+	end
+
+	if CLOTHING_CLASSES[className] then
 		pcall(setProperty, instance, CLOTHING_CLASSES[className], "")
 	elseif className == "SpecialMesh" then
 		pcall(setProperty, instance, "TextureId", "")
-		pcall(setProperty, instance, "VertexColor", Vector3.new(1, 1, 1))
 	elseif className == "SurfaceAppearance" then
 		pcall(setProperty, instance, "ColorMap", "")
+	end
+end
+
+---Find the ground under every living entity and keep it visible.
+local function updateGround()
+	local filter = {}
+
+	for _, descendant in ipairs(workspaceService:GetDescendants()) do
+		if descendant:IsA("Humanoid") or descendant:IsA("AnimationController") then
+			table.insert(filter, descendant.Parent)
+		end
+	end
+
+	local params = RaycastParams.new()
+	params.FilterType = Enum.RaycastFilterType.Exclude
+	params.FilterDescendantsInstances = filter
+
+	for _, model in ipairs(filter) do
+		local root = model:FindFirstChild("HumanoidRootPart") or model.PrimaryPart
+		if not root then
+			continue
+		end
+
+		local result = workspaceService:Raycast(root.Position, Vector3.new(0, -GROUND_RAY_LENGTH, 0), params)
+		local part = result and result.Instance
+		if not part or part:IsA("Terrain") or MobOnlyView.ground[part] then
+			continue
+		end
+
+		MobOnlyView.ground[part] = true
+		pcall(setProperty, part, "LocalTransparencyModifier", 0)
+		pcall(whitenPart, part)
 	end
 end
 
@@ -279,17 +342,16 @@ local function restoreAll()
 	end
 
 	table.clear(MobOnlyView.cache)
+	table.clear(MobOnlyView.ground)
 	table.clear(MobOnlyView.queue)
-	restoreTerrain()
 end
 
----Process a container's descendants within a time budget per frame.
----@param root Instance
+---Process the whole game within a time budget per frame.
 ---@param pass number
-local function processContainer(root, pass)
+local function processExisting(pass)
 	local frameStart = os.clock()
 
-	for _, instance in ipairs(root:GetDescendants()) do
+	for _, instance in ipairs(game:GetDescendants()) do
 		if not MobOnlyView.running or MobOnlyView.pass ~= pass then
 			return
 		end
@@ -317,7 +379,7 @@ local function drainQueue()
 	end
 end
 
----Reset everything and apply white from scratch.
+---Reset everything and apply the current mode from scratch.
 local function applyAll()
 	MobOnlyView.pass = MobOnlyView.pass + 1
 	local pass = MobOnlyView.pass
@@ -328,13 +390,22 @@ local function applyAll()
 		pcall(applyLowSettings)
 	end
 
-	pcall(whitenTerrain)
+	if REMOVE_WATER_EFFECTS then
+		pcall(removeWaterEffects)
+	end
 
-	-- Everything in workspace plus lighting objects (sky, atmosphere, effects).
-	task.spawn(function()
-		processContainer(workspaceService, pass)
-		processContainer(lightingService, pass)
-	end)
+	if MobOnlyView.hideObjects and KEEP_GROUND_VISIBLE then
+		pcall(updateGround)
+	end
+
+	task.spawn(processExisting, pass)
+end
+
+---Switch between hiding objects and showing them as white.
+---@param state boolean
+function MobOnlyView.setHideObjects(state)
+	MobOnlyView.hideObjects = state
+	applyAll()
 end
 
 ---Stop and restore everything.
@@ -356,6 +427,7 @@ end
 ---Start the script.
 function MobOnlyView.init()
 	MobOnlyView.running = true
+	MobOnlyView.hideObjects = hideObject
 
 	-- Remove the notifications gui first.
 	if REMOVE_NOTIFICATIONS then
@@ -364,20 +436,18 @@ function MobOnlyView.init()
 
 	applyAll()
 
-	-- Queue anything new in workspace and lighting instead of processing it instantly.
-	for _, container in ipairs({ workspaceService, lightingService }) do
-		table.insert(
-			MobOnlyView.connections,
-			container.DescendantAdded:Connect(function(instance)
-				table.insert(MobOnlyView.queue, instance)
-			end)
-		)
-	end
+	-- Queue anything that spawns later instead of processing it instantly.
+	table.insert(
+		MobOnlyView.connections,
+		game.DescendantAdded:Connect(function(instance)
+			table.insert(MobOnlyView.queue, instance)
+		end)
+	)
 
 	-- Drain the queue once per frame within a small time budget.
-	table.insert(MobOnlyView.connections, runService.Heartbeat:Connect(drainQueue))
+	table.insert(MobOnlyView.connections, game:GetService("RunService").Heartbeat:Connect(drainQueue))
 
-	-- Remove Notifications again if the game re-creates it.
+	-- Remove Notifications again if the game re-creates it (e.g. on respawn).
 	if REMOVE_NOTIFICATIONS then
 		table.insert(
 			MobOnlyView.connections,
@@ -387,6 +457,23 @@ function MobOnlyView.init()
 				end
 			end)
 		)
+	end
+
+	-- Reapply the water values if the game changes them back.
+	if REMOVE_WATER_EFFECTS then
+		local terrain = workspaceService:FindFirstChildOfClass("Terrain")
+		if terrain then
+			for property in pairs(WATER_PROPERTIES) do
+				table.insert(
+					MobOnlyView.connections,
+					terrain:GetPropertyChangedSignal(property):Connect(function()
+						if terrain[property] ~= WATER_PROPERTIES[property] then
+							pcall(setProperty, terrain, property, WATER_PROPERTIES[property])
+						end
+					end)
+				)
+			end
+		end
 	end
 
 	-- Keep lighting white if the game changes it back.
@@ -401,6 +488,19 @@ function MobOnlyView.init()
 				end)
 			)
 		end
+	end
+
+	-- Refresh ground under moving mobs.
+	if KEEP_GROUND_VISIBLE then
+		task.spawn(function()
+			while MobOnlyView.running do
+				if MobOnlyView.hideObjects then
+					pcall(updateGround)
+				end
+
+				task.wait(GROUND_INTERVAL)
+			end
+		end)
 	end
 end
 
