@@ -9,6 +9,7 @@ loadstring("getfenv().LPH_NO_VIRTUALIZE = function(...) return ... end")()
 -- Module table.
 local MobOnlyView = {
 	connections = {},
+	gachaConnections = {},
 	running = false,
 	hideObjects = true,
 	pass = 0,
@@ -28,8 +29,15 @@ local KEEP_GROUND_VISIBLE = false
 local HIDE_OTHER_PLAYERS = false
 local REMOVE_NOTIFICATIONS = true
 local REMOVE_WATER_EFFECTS = true
+local DISABLE_ANIMATE_GACHA = true
 local LOCAL_CLAY_COLOR = Color3.fromRGB(120, 200, 255)
 local PLAYER_CLAY_COLOR = Color3.fromRGB(255, 170, 200)
+
+-- Gacha animation remote names in ReplicatedStorage.Modules.Net.
+local GACHA_ANIMATION_REMOTES = {
+	"RE/PrepClientSpin",
+	"RE/SpinGacha",
+}
 
 -- Classes that are simply switched off.
 local DISABLED_CLASSES = {
@@ -76,6 +84,7 @@ local LOW_LIGHTING_PROPERTIES = {
 local playersService = game:GetService("Players")
 local workspaceService = game:GetService("Workspace")
 local lightingService = game:GetService("Lighting")
+local replicatedStorageService = game:GetService("ReplicatedStorage")
 
 -- State.
 local localPlayer = playersService.LocalPlayer
@@ -205,6 +214,51 @@ local function restoreNotifications()
 
 	MobOnlyView.notifications = nil
 	MobOnlyView.notificationsParent = nil
+end
+
+---Disable gacha spin/reveal animation remotes and close the Spinner window if open.
+local function DisableAnimateGacha()
+	if type(getconnections) == "function" then
+		local modules = replicatedStorageService:FindFirstChild("Modules")
+		local net = modules and modules:FindFirstChild("Net")
+
+		if net then
+			for _, remoteName in ipairs(GACHA_ANIMATION_REMOTES) do
+				local remote = net:FindFirstChild(remoteName)
+				if remote and remote:IsA("RemoteEvent") then
+					for _, conn in ipairs(getconnections(remote.OnClientEvent)) do
+						if conn.Enabled then
+							conn:Disable()
+							table.insert(MobOnlyView.gachaConnections, conn)
+						end
+					end
+				end
+			end
+		end
+	end
+
+	-- Close the Spinner overlay cleanly if it is currently open.
+	local controllers = replicatedStorageService:FindFirstChild("Controllers")
+	local uiFolder = controllers and controllers:FindFirstChild("UI")
+	local spinnerModule = uiFolder and uiFolder:FindFirstChild("Spinner")
+
+	if spinnerModule then
+		local ok, Spinner = pcall(require, spinnerModule)
+		if ok and type(Spinner) == "table" and Spinner.IsOpen and Spinner.Close and Spinner.IsOpen() then
+			pcall(Spinner.Close)
+		end
+	end
+end
+
+---Re-enable gacha animation connections disabled by DisableAnimateGacha.
+local function restoreGachaAnimation()
+	for _, conn in ipairs(MobOnlyView.gachaConnections) do
+		pcall(function()
+			conn:Enable()
+		end)
+	end
+
+	table.clear(MobOnlyView.gachaConnections)
 end
 
 ---Turn a part into flat clay.
@@ -377,6 +431,8 @@ function MobOnlyView.setHideObjects(state)
 	applyAll()
 end
 
+MobOnlyView.DisableAnimateGacha = DisableAnimateGacha
+
 ---Stop and restore everything.
 function MobOnlyView.detach()
 	MobOnlyView.running = false
@@ -391,6 +447,7 @@ function MobOnlyView.detach()
 	table.clear(MobOnlyView.connections)
 	restoreAll()
 	restoreNotifications()
+	restoreGachaAnimation()
 end
 
 ---Start the script.
@@ -401,6 +458,11 @@ function MobOnlyView.init()
 	-- Remove the notifications gui first.
 	if REMOVE_NOTIFICATIONS then
 		pcall(removeNotifications)
+	end
+
+	-- Disable gacha spin animation and close any active Spinner overlay.
+	if DISABLE_ANIMATE_GACHA then
+		pcall(DisableAnimateGacha)
 	end
 
 	applyAll()
