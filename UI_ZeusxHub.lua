@@ -356,7 +356,7 @@ create("UIPadding", {
 -- Layout: header, body, footer.
 create("UIListLayout", { Parent = main, Padding = UDim.new(0, 8), SortOrder = Enum.SortOrder.LayoutOrder })
 
-createBar(main, "Zeusx Hub | Blox Fruits Kaitan", "Ctrl / Alt : Hide UI", 0)
+createBar(main, "Aresx Hub | Blox Fruits Kaitan", "Ctrl / Alt : Hide UI", 0)
 
 local body = create("Frame", {
     Parent = main,
