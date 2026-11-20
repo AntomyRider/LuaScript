@@ -104,6 +104,20 @@ local function getData(name)
     return value and value.Value or "-"
 end
 
+local function getRace()
+	local success, text = pcall(function()
+		return localPlayer.PlayerGui.StatsRoot.Frame.Menu.Content.Race.Race.Text
+	end)
+
+	if not success or not text then
+		return "-"
+	end
+
+	-- Remove "Race:" prefix and surrounding whitespace.
+	local race = tostring(text):gsub("^%s*[Rr]ace%s*:?%s*", "")
+	return race ~= "" and race or "-"
+end
+
 ---Create an instance with properties.
 ---@param className string
 ---@param props table
@@ -508,7 +522,7 @@ local function onRenderStep()
     levelValue.Text = formatNumber(getData("Level"))
     beliValue.Text = formatNumber(getData("Beli"))
     fragmentValue.Text = formatNumber(getData("Fragments"))
-    raceValue.Text = tostring(getData("Race"))
+    raceValue.Text = getRace()
 
     if not pendingInventory then
         return
